@@ -10,7 +10,7 @@ export function useCreateHabit() {
       saveHabit(goal, habit),
 
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.todayHabit });
+      queryClient.invalidateQueries({ queryKey: queryKeys.todayHabits });
       queryClient.invalidateQueries({ queryKey: queryKeys.habits });
     },
   });

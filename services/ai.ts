@@ -41,8 +41,20 @@ export async function getWeeklyInsight(
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error ?? `Request failed: ${res.status}`);
+    const err = await res.json().catch(() => null) as
+      | { error?: unknown; message?: unknown }
+      | null;
+    const message =
+      typeof err?.message === 'string'
+        ? err.message
+        : Array.isArray(err?.message)
+          ? err.message.filter((part): part is string => typeof part === 'string').join(', ')
+          : typeof err?.error === 'string'
+            ? err.error
+            : `Request failed: ${res.status}`;
+    const apiError = new Error(message) as Error & { status?: number };
+    apiError.status = res.status;
+    throw apiError;
   }
 
   return res.json();

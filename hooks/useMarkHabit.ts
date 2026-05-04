@@ -10,15 +10,15 @@ export function useMarkHabit() {
       markHabit(id, completed),
 
     onMutate: async ({ id, completed }) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.todayHabit });
+      await queryClient.cancelQueries({ queryKey: queryKeys.todayHabits });
       await queryClient.cancelQueries({ queryKey: queryKeys.habits });
 
-      const prevToday = queryClient.getQueryData<TodayHabit | null>(queryKeys.todayHabit);
+      const prevToday = queryClient.getQueryData<TodayHabit[]>(queryKeys.todayHabits);
       const prevHabits = queryClient.getQueryData<HabitRow[]>(queryKeys.habits);
 
-      queryClient.setQueryData<TodayHabit | null>(
-        queryKeys.todayHabit,
-        (old) => (old ? { ...old, completed } : old),
+      queryClient.setQueryData<TodayHabit[]>(
+        queryKeys.todayHabits,
+        (old) => old?.map((h) => (h.id === id ? { ...h, completed } : h)),
       );
       queryClient.setQueryData<HabitRow[]>(
         queryKeys.habits,
@@ -30,7 +30,7 @@ export function useMarkHabit() {
 
     onError: (_err, _vars, context) => {
       if (context?.prevToday !== undefined) {
-        queryClient.setQueryData(queryKeys.todayHabit, context.prevToday);
+        queryClient.setQueryData(queryKeys.todayHabits, context.prevToday);
       }
       if (context?.prevHabits !== undefined) {
         queryClient.setQueryData(queryKeys.habits, context.prevHabits);
@@ -38,7 +38,7 @@ export function useMarkHabit() {
     },
 
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.todayHabit });
+      queryClient.invalidateQueries({ queryKey: queryKeys.todayHabits });
       queryClient.invalidateQueries({ queryKey: queryKeys.habits });
       queryClient.invalidateQueries({ queryKey: queryKeys.streak });
     },

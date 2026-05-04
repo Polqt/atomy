@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Remove-Item *)",
+      "Bash(npx drizzle-kit *)",
+      "Bash(Remove-Item \"C:\\\\Users\\\\poyhi\\\\atomy\\\\server\\\\src\\\\shared\\\\groq-ai.client.ts\", \"C:\\\\Users\\\\poyhi\\\\atomy\\\\server\\\\src\\\\shared\\\\index.ts\", \"C:\\\\Users\\\\poyhi\\\\atomy\\\\server\\\\src\\\\modules\\\\auth\\\\auth.service.ts\", \"C:\\\\Users\\\\poyhi\\\\atomy\\\\server\\\\src\\\\modules\\\\subscriptions\\\\subscriptions.module.ts\", \"C:\\\\Users\\\\poyhi\\\\atomy\\\\server\\\\src\\\\modules\\\\subscriptions\\\\index.ts\" -Force)",
+      "Bash(Remove-Item \"C:\\\\Users\\\\poyhi\\\\atomy\\\\server\\\\src\\\\shared\" -Force)"
+    ]
+  }
+}

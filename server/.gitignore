@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+package-lock.json
+yarn.lock
+
+# Build
+dist/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+coverage/
+*.lcov
+
+# Logs
+logs/
+*.log
+
+# Drizzle
+drizzle/
+
+# Compiled root-level TS artifacts (seed.ts, drizzle.config.ts)
+/*.js
+/*.js.map
+/*.d.ts
+/*.d.ts.map

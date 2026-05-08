@@ -1,4 +1,5 @@
-import { supabase } from '../config/supabase';
+import { authorizedJson, authorizedRequest } from './backend';
+import { computeCurrentStreak } from '@/utils/habit-stats';
 
 export type TodayHabit = {
   id: string;
@@ -15,133 +16,78 @@ export type HabitRow = {
   created_at: string;
 };
 
-async function getAuthenticatedUserId(): Promise<string> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-  return user.id;
+type HabitApiRow = {
+  id: string;
+  goal: string;
+  habit: string;
+  completed: boolean;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+function normalizeHabit(row: HabitApiRow): HabitRow {
+  return {
+    id: row.id,
+    goal: row.goal,
+    habit: row.habit,
+    completed: row.completed,
+    created_at: new Date(row.createdAt).toISOString(),
+  };
+}
+
+async function fetchHabits(): Promise<HabitRow[]> {
+  const rows = await authorizedJson<HabitApiRow[]>('/api/habits');
+  return (rows ?? [])
+    .map(normalizeHabit)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
 }
 
 export async function getTodayHabits(): Promise<TodayHabit[]> {
-  const userId = await getAuthenticatedUserId();
+  const habits = await fetchHabits();
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
+
   const tomorrowStart = new Date(todayStart);
   tomorrowStart.setDate(tomorrowStart.getDate() + 1);
 
-  const { data, error } = await supabase
-    .from('habits')
-    .select('id, goal, habit, completed')
-    .eq('user_id', userId)
-    .gte('created_at', todayStart.toISOString())
-    .lt('created_at', tomorrowStart.toISOString())
-    .order('created_at', { ascending: false });
-
-  if (error) throw new Error(error.message);
-  return data ?? [];
+  return habits.filter((habit) => {
+    const createdAt = new Date(habit.created_at);
+    return createdAt >= todayStart && createdAt < tomorrowStart;
+  });
 }
 
 export async function getHabits(): Promise<HabitRow[]> {
-  const userId = await getAuthenticatedUserId();
-
-  const { data, error } = await supabase
-    .from('habits')
-    .select('id, goal, habit, completed, created_at')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-
-  if (error) throw new Error(error.message);
-  return data ?? [];
+  return fetchHabits();
 }
 
 export async function getStreak(): Promise<number> {
-  const userId = await getAuthenticatedUserId();
-
-  const { data, error } = await supabase
-    .from('habits')
-    .select('completed, created_at')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-
-  if (error) throw new Error(error.message);
-  if (!data || data.length === 0) return 0;
-
-  // A day counts as completed if ANY habit that day was completed.
-  const byDate = new Map<string, boolean>();
-  for (const row of data) {
-    const day = row.created_at.slice(0, 10);
-    if (!byDate.has(day)) byDate.set(day, row.completed);
-    else if (row.completed) byDate.set(day, true);
-  }
-
-  // Walk backwards from yesterday (today is in-progress, don't penalise).
-  let streak = 0;
-  const cursor = new Date();
-  cursor.setHours(0, 0, 0, 0);
-  cursor.setDate(cursor.getDate() - 1);
-
-  while (true) {
-    const key = cursor.toISOString().slice(0, 10);
-    if (!byDate.has(key)) break;
-    if (!byDate.get(key)) break;
-    streak++;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  // Count today if any habit is already completed.
-  const todayKey = new Date().toISOString().slice(0, 10);
-  if (byDate.get(todayKey) === true) streak++;
-
-  return streak;
+  return computeCurrentStreak(await fetchHabits());
 }
 
 export async function updateHabit(id: string, habit: string, goal: string): Promise<void> {
-  const userId = await getAuthenticatedUserId();
-
-  const { error } = await supabase
-    .from('habits')
-    .update({ habit, goal })
-    .eq('id', id)
-    .eq('user_id', userId);
-
-  if (error) throw new Error(error.message);
+  await authorizedRequest(`/api/habits/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ habit, goal }),
+  });
 }
 
 export async function deleteHabit(id: string): Promise<void> {
-  const userId = await getAuthenticatedUserId();
-
-  const { error } = await supabase
-    .from('habits')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', userId);
-
-  if (error) throw new Error(error.message);
+  await authorizedRequest(`/api/habits/${id}`, {
+    method: 'DELETE',
+  });
 }
 
 export async function markHabit(id: string, completed: boolean): Promise<void> {
-  const userId = await getAuthenticatedUserId();
-
-  const { error } = await supabase
-    .from('habits')
-    .update({ completed })
-    .eq('id', id)
-    .eq('user_id', userId);
-
-  if (error) throw new Error(error.message);
+  await authorizedRequest(`/api/habits/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ completed }),
+  });
 }
 
 export async function saveHabit(goal: string, habit: string): Promise<void> {
-  const userId = await getAuthenticatedUserId();
-
-  const { error } = await supabase.from('habits').insert({
-    user_id: userId,
-    goal,
-    habit,
-    completed: false,
+  await authorizedRequest('/api/habits', {
+    method: 'POST',
+    body: JSON.stringify({ goal, habit }),
   });
-
-  if (error) throw new Error(error.message);
 }

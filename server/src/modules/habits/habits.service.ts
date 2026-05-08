@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { HabitsRepository } from './habits.repository';
 
 @Injectable()
@@ -10,7 +10,8 @@ export class HabitsService {
   }
 
   async createHabit(userId: string, goal: string, habit: string) {
-    return this.habitsRepository.create({ userId, goal, habit, completed: false });
+    const rows = await this.habitsRepository.create({ userId, goal, habit, completed: false });
+    return rows[0];
   }
 
   async updateHabit(
@@ -18,14 +19,29 @@ export class HabitsService {
     userId: string,
     data: Partial<{ goal: string; habit: string; completed: boolean }>,
   ) {
-    return this.habitsRepository.update(id, userId, data);
+    const rows = await this.habitsRepository.update(id, userId, data);
+    if (rows.length === 0) {
+      throw new NotFoundException('Habit not found');
+    }
+
+    return rows[0];
   }
 
   async deleteHabit(id: string, userId: string) {
-    return this.habitsRepository.delete(id, userId);
+    const rows = await this.habitsRepository.delete(id, userId);
+    if (rows.length === 0) {
+      throw new NotFoundException('Habit not found');
+    }
+
+    return rows[0];
   }
 
   async getHabitById(id: string, userId: string) {
-    return this.habitsRepository.findById(id, userId);
+    const habit = await this.habitsRepository.findById(id, userId);
+    if (!habit) {
+      throw new NotFoundException('Habit not found');
+    }
+
+    return habit;
   }
 }

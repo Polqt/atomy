@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 import { Link } from 'expo-router';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useAuth } from '../../context/AuthContext';
-import { AuthCardShell, AuthField, AuthButton, AuthError } from '../../components/AuthCard';
+import { AuthCardShell, AuthField, AuthButton, AuthDivider, AuthOAuthButton } from '../../components/AuthCard';
 
 function SuccessState({ email }: { email: string }) {
   return (
@@ -30,91 +30,6 @@ function SuccessState({ email }: { email: string }) {
   );
 }
 
-export default function SignupScreen() {
-  const { signUp } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
-
-  if (done) return <SuccessState email={email} />;
-
-  const handleSignup = async () => {
-    if (!email || !password) return;
-    setError('');
-    setLoading(true);
-    try {
-      await signUp(email, password);
-      setDone(true);
-    } catch (e: any) {
-      setError(e.message ?? 'Sign up failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <AuthCardShell>
-      {/* Heading block */}
-      <Animated.View entering={FadeInDown.duration(420).delay(100)} style={styles.headingBlock}>
-        <Text style={styles.headingLight}>Create your</Text>
-        <Text style={styles.headingBold}>account.</Text>
-        <Text style={styles.subHeading}>Start building better habits today.</Text>
-      </Animated.View>
-
-      <AuthError message={error} />
-
-      <AuthField
-        label="Email"
-        delay={200}
-        value={email}
-        onChangeText={setEmail}
-        placeholder="you@example.com"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        autoComplete="email"
-      />
-
-      <AuthField
-        label="Password"
-        delay={280}
-        value={password}
-        onChangeText={setPassword}
-        placeholder="min. 8 characters"
-        secureTextEntry
-        autoComplete="new-password"
-      />
-
-      {/* Password strength hint */}
-      {password.length > 0 && (
-        <Animated.View entering={FadeIn.duration(260)} style={styles.strengthRow}>
-          <PasswordStrengthBar password={password} />
-        </Animated.View>
-      )}
-
-      <View style={styles.buttonWrap}>
-        <AuthButton
-          label="Create account"
-          onPress={handleSignup}
-          loading={loading}
-          disabled={!email || password.length < 6}
-          delay={360}
-        />
-      </View>
-
-      <Animated.View entering={FadeIn.duration(380).delay(500)} style={styles.switchRow}>
-        <Text style={styles.switchText}>Already have an account?</Text>
-        <Link href="/(auth)/login" asChild>
-          <Pressable hitSlop={8}>
-            <Text style={styles.switchLink}>Sign in →</Text>
-          </Pressable>
-        </Link>
-      </Animated.View>
-    </AuthCardShell>
-  );
-}
-
 function PasswordStrengthBar({ password }: { password: string }) {
   const strength = password.length < 6 ? 1 : password.length < 10 ? 2 : 3;
   const colors = ['#F87171', '#FBBF24', '#22C55E'];
@@ -128,10 +43,7 @@ function PasswordStrengthBar({ password }: { password: string }) {
         {[1, 2, 3].map((i) => (
           <View
             key={i}
-            style={[
-              styles.strengthSegment,
-              { backgroundColor: i <= strength ? color : '#E5E7EB' },
-            ]}
+            style={[styles.strengthSegment, { backgroundColor: i <= strength ? color : '#E5E7EB' }]}
           />
         ))}
       </View>
@@ -140,36 +52,152 @@ function PasswordStrengthBar({ password }: { password: string }) {
   );
 }
 
+export default function SignupScreen() {
+  const { signUp } = useAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  if (done) return <SuccessState email={email} />;
+
+  const validate = () => {
+    let valid = true;
+    setEmailError('');
+    setPasswordError('');
+    setAuthError('');
+
+    if (!email.trim()) {
+      setEmailError('Please enter your email.');
+      valid = false;
+    }
+    if (!password) {
+      setPasswordError('Please enter a password.');
+      valid = false;
+    } else if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters.');
+      valid = false;
+    }
+    return valid;
+  };
+
+  const handleSignup = async () => {
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      await signUp(email.trim(), password);
+      setDone(true);
+    } catch (e: any) {
+      setAuthError(e.message ?? 'Sign up failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOAuth = () => {
+    Alert.alert('Coming soon', 'OAuth will be available in a future update.');
+  };
+
+  return (
+    <AuthCardShell>
+      {/* Heading */}
+      <Animated.View entering={FadeInDown.duration(420).delay(100)} style={styles.headingBlock}>
+        <Text style={styles.title}>Create account.</Text>
+        <Text style={styles.subtitle}>Start building better habits today.</Text>
+      </Animated.View>
+
+      {/* Fields */}
+      <View style={styles.fields}>
+        <AuthField
+          label="Email"
+          delay={180}
+          value={email}
+          onChangeText={(v) => { setEmail(v); setEmailError(''); }}
+          placeholder="you@example.com"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          autoComplete="email"
+          error={emailError}
+        />
+
+        <AuthField
+          label="Password"
+          delay={240}
+          value={password}
+          onChangeText={(v) => { setPassword(v); setPasswordError(''); setAuthError(''); }}
+          placeholder="min. 6 characters"
+          secureTextEntry
+          autoComplete="new-password"
+          error={passwordError || authError}
+        />
+
+        {password.length > 0 && (
+          <Animated.View entering={FadeIn.duration(260)} style={styles.strengthRow}>
+            <PasswordStrengthBar password={password} />
+          </Animated.View>
+        )}
+      </View>
+
+      {/* CTA */}
+      <View style={styles.buttonWrap}>
+        <AuthButton
+          label="Create account"
+          onPress={handleSignup}
+          loading={loading}
+          disabled={loading}
+          delay={300}
+        />
+      </View>
+
+      {/* OAuth */}
+      <Animated.View entering={FadeIn.duration(380).delay(380)}>
+        <AuthDivider />
+        <AuthOAuthButton icon="G" label="Continue with Google" onPress={handleOAuth} />
+        <AuthOAuthButton icon="" label="Continue with Apple" onPress={handleOAuth} />
+      </Animated.View>
+
+      {/* Switch */}
+      <Animated.View entering={FadeIn.duration(380).delay(460)} style={styles.switchRow}>
+        <Text style={styles.switchText}>Already have an account?</Text>
+        <Link href="/(auth)/login" asChild>
+          <Pressable hitSlop={8}>
+            <Text style={styles.switchLink}>Sign in →</Text>
+          </Pressable>
+        </Link>
+      </Animated.View>
+    </AuthCardShell>
+  );
+}
+
 const styles = StyleSheet.create({
   headingBlock: {
-    marginBottom: 28,
+    marginBottom: 24,
+    gap: 6,
   },
-  headingLight: {
-    fontSize: 34,
-    fontWeight: '200',
-    color: '#0A0A0A',
-    letterSpacing: -1,
-    lineHeight: 40,
-  },
-  headingBold: {
-    fontSize: 34,
+  title: {
+    fontSize: 30,
     fontWeight: '700',
     color: '#0A0A0A',
-    letterSpacing: -1,
-    lineHeight: 40,
-    marginBottom: 10,
+    letterSpacing: -0.8,
+    lineHeight: 36,
   },
-  subHeading: {
-    fontSize: 13,
+  subtitle: {
+    fontSize: 14,
     fontWeight: '400',
     color: '#9CA3AF',
     letterSpacing: 0.1,
-    lineHeight: 19,
+    lineHeight: 20,
   },
-
+  fields: {
+    gap: 4,
+  },
   strengthRow: {
-    marginTop: -12,
-    marginBottom: 20,
+    marginTop: -8,
+    marginBottom: 8,
+    paddingHorizontal: 2,
   },
   strengthWrap: {
     flexDirection: 'row',
@@ -193,16 +221,16 @@ const styles = StyleSheet.create({
     minWidth: 52,
     textAlign: 'right',
   },
-
   buttonWrap: {
-    marginTop: 8,
+    marginTop: 4,
+    marginBottom: 4,
   },
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    marginTop: 24,
+    marginTop: 16,
   },
   switchText: {
     fontSize: 13,
@@ -238,11 +266,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   successHeading: {
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: '700',
     color: '#0A0A0A',
-    letterSpacing: -1,
-    lineHeight: 40,
+    letterSpacing: -0.8,
+    lineHeight: 38,
     textAlign: 'center',
     marginBottom: 16,
   },

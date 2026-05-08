@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase';
+import { authorizedRequest, getApiUrl } from '../services/backend';
 
 type AuthContextType = {
   user: User | null;
@@ -9,6 +10,7 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  updateProfile: (name: string, avatarUrl?: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -48,8 +50,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
+  const updateProfile = async (name: string, avatarUrl?: string) => {
+    const { error } = await supabase.auth.updateUser({
+      data: { name, ...(avatarUrl !== undefined ? { avatar_url: avatarUrl } : {}) },
+    });
+    if (error) throw error;
+
+    if (!getApiUrl()) return;
+
+    const accessToken =
+      session?.access_token ?? (await supabase.auth.getSession()).data.session?.access_token;
+
+    if (!accessToken) return;
+
+    try {
+      await authorizedRequest(
+        '/api/users/me',
+        {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name,
+            ...(avatarUrl !== undefined ? { preferences: { avatarUrl } } : {}),
+          }),
+        },
+        accessToken,
+      );
+    } catch (err) {
+      console.warn('[users] backend profile sync failed', err);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

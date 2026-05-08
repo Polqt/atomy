@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import {
   registerForPushNotifications,
   scheduleDailyHabitReminder,
   syncPushTokenWithBackend,
 } from '../services/notifications';
+import { authorizedRequest, getApiUrl } from '../services/backend';
 import SplashScreen from '../components/SplashScreen';
 
 const queryClient = new QueryClient({
@@ -19,13 +21,52 @@ const queryClient = new QueryClient({
   },
 });
 
-function PushTokenSync() {
+// Ensures the user row exists in public.users before any habit inserts
+function UserSync() {
   const { session } = useAuth();
-  const synced = useRef(false);
+  const syncedUserId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!session || synced.current) return;
-    synced.current = true;
+    const userId = session?.user.id ?? null;
+
+    if (!session || !userId || !getApiUrl()) {
+      if (!session) {
+        syncedUserId.current = null;
+      }
+      return;
+    }
+
+    if (syncedUserId.current === userId) return;
+    syncedUserId.current = userId;
+
+    (async () => {
+      try {
+        await authorizedRequest('/api/users/me', { method: 'GET' }, session.access_token);
+      } catch (err) {
+        console.warn('[users] backend profile sync failed', err);
+      }
+    })();
+  }, [session?.user.id, session?.access_token]);
+
+  return null;
+}
+
+function PushTokenSync() {
+  const { session } = useAuth();
+  const syncedUserId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const userId = session?.user.id ?? null;
+
+    if (!session || !userId) {
+      if (!session) {
+        syncedUserId.current = null;
+      }
+      return;
+    }
+
+    if (syncedUserId.current === userId) return;
+    syncedUserId.current = userId;
 
     (async () => {
       try {
@@ -38,7 +79,7 @@ function PushTokenSync() {
         console.warn('[notifications] push token sync failed', err);
       }
     })();
-  }, [session]);
+  }, [session?.user.id, session?.access_token]);
 
   return null;
 }
@@ -68,13 +109,16 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <PushTokenSync />
-        <OnboardingGate>
-          <Stack screenOptions={{ headerShown: false }} />
-        </OnboardingGate>
-      </AuthProvider>
-    </QueryClientProvider>
+    <SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <UserSync />
+          <PushTokenSync />
+          <OnboardingGate>
+            <Stack screenOptions={{ headerShown: false }} />
+          </OnboardingGate>
+        </AuthProvider>
+      </QueryClientProvider>
+    </SafeAreaProvider>
   );
 }

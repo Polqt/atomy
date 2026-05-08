@@ -6,6 +6,7 @@ export default function AppLayout() {
 
   if (loading) return null;
   if (!user) return <Redirect href="/(auth)/login" />;
+  if (!user.user_metadata?.name) return <Redirect href="/setup/name" />;
 
   return (
     <Stack

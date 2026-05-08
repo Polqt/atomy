@@ -1,231 +1,181 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
-import { type HabitEntry } from '../../services/ai';
-import { getGoal, saveGoal } from '../../services/goal';
-import colors from '../../constants/colors';
-import { useTodayHabit } from '../../hooks/useTodayHabit';
+import { useRouter } from 'expo-router';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import TabScreen from '@/components/TabScreen';
 import { useGenerateHabit } from '../../hooks/useGenerateHabit';
 import { useCreateHabit } from '../../hooks/useCreateHabit';
+import colors from '../../constants/colors';
 
 export default function GenerateScreen() {
-  const [goalInput, setGoalInput] = useState('');
-  const [savedGoal, setSavedGoal] = useState<string | null>(null);
-  const [result, setResult] = useState<{ habit: string; reason: string } | null>(null);
+  const router = useRouter();
+  const [goal, setGoal] = useState('');
   const [error, setError] = useState('');
+  const [result, setResult] = useState<{ habit: string; reason: string } | null>(null);
 
-  const { data: todayHabit, isLoading: habitLoading } = useTodayHabit();
   const { mutateAsync: generate, isPending: isGenerating } = useGenerateHabit();
-  const { mutateAsync: create } = useCreateHabit();
+  const { mutateAsync: create, isPending: isCreating } = useCreateHabit();
 
-  const history: HabitEntry[] = [];
-  const loading = habitLoading || isGenerating;
+  const canGenerate = goal.trim().length > 0 && !isGenerating;
 
-  // Populate state from cached query on first load
-  const initialised = useRef(false);
-  useEffect(() => {
-    if (habitLoading || initialised.current) return;
-    initialised.current = true;
-
-    getGoal().then((stored) => {
-      if (todayHabit) {
-        setSavedGoal(todayHabit.goal);
-        setResult({ habit: todayHabit.habit, reason: "You've already generated today's habit." });
-        return;
-      }
-      if (stored) setSavedGoal(stored);
-    });
-  }, [habitLoading, todayHabit]);
-
-  const handleGenerate = async (goal: string) => {
+  const handleGenerate = async () => {
+    if (!canGenerate) return;
     setError('');
     setResult(null);
     try {
-      await saveGoal(goal);
-      setSavedGoal(goal);
-
-      if (todayHabit) {
-        setResult({ habit: todayHabit.habit, reason: "You've already generated today's habit." });
-        return;
-      }
-
-      const data = await generate({ goal, history });
-      await create({ goal, habit: data.habit });
+      const data = await generate({ goal: goal.trim(), history: [] });
       setResult(data);
     } catch (e: any) {
       setError(e.message ?? 'Something went wrong.');
     }
   };
 
-  const handleEditGoal = () => {
-    setGoalInput(savedGoal ?? '');
-    setSavedGoal(null);
-    setResult(null);
-    setError('');
+  const handleAdd = async () => {
+    if (!result || isCreating) return;
+    try {
+      await create({ goal: goal.trim(), habit: result.habit });
+      router.replace('/');
+    } catch (e: any) {
+      setError(e.message ?? 'Something went wrong.');
+    }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color="#C8A96E" size="small" />
-      </View>
-    );
-  }
-
-  // Goal not set yet — first-use input
-  if (!savedGoal) {
-    return (
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <View style={styles.inner}>
-          <Text style={styles.wordmark}>atomy</Text>
-          <Text style={styles.heading}>What's your goal?</Text>
-          <Text style={styles.sub}>You'll only need to set this once.</Text>
-
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>YOUR GOAL</Text>
-            <TextInput
-              style={styles.input}
-              value={goalInput}
-              onChangeText={setGoalInput}
-              placeholder="e.g. Run a 5K"
-              placeholderTextColor={colors.secondary}
-              autoCapitalize="sentences"
-              returnKeyType="done"
-              autoFocus
-              onSubmitEditing={() => goalInput.trim() && handleGenerate(goalInput.trim())}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.button, (!goalInput.trim() || loading) && styles.buttonDisabled]}
-            onPress={() => handleGenerate(goalInput.trim())}
-            disabled={!goalInput.trim() || loading}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.buttonText}>{loading ? 'Generating...' : 'Set Goal & Generate'}</Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
-    );
-  }
-
-  // Goal set — show result or generating state
   return (
-    <View style={styles.container}>
-      <View style={styles.inner}>
-        <Text style={styles.wordmark}>atomy</Text>
-        <Text style={styles.heading}>Today's habit</Text>
+    <KeyboardAvoidingView
+      style={styles.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.heading}>AI Habit</Text>
+        <Text style={styles.sub}>Describe a goal and get a habit suggestion.</Text>
 
-        <View style={styles.goalRow}>
-          <View style={styles.goalMeta}>
-            <Text style={styles.label}>YOUR GOAL</Text>
-            <Text style={styles.goalText}>{savedGoal}</Text>
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>{error}</Text>
           </View>
-          <TouchableOpacity onPress={handleEditGoal} activeOpacity={0.7}>
-            <Text style={styles.editLink}>Edit</Text>
-          </TouchableOpacity>
+        ) : null}
+
+        <View style={styles.field}>
+          <Text style={styles.label}>YOUR GOAL</Text>
+          <TextInput
+            style={styles.input}
+            value={goal}
+            onChangeText={setGoal}
+            placeholder="e.g. Run a 5K"
+            placeholderTextColor={colors.muted}
+            autoCapitalize="sentences"
+            returnKeyType="done"
+            onSubmitEditing={handleGenerate}
+          />
         </View>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        <Pressable
+          style={[styles.button, !canGenerate && styles.buttonDisabled]}
+          onPress={handleGenerate}
+          disabled={!canGenerate}
+        >
+          {isGenerating ? (
+            <ActivityIndicator color={colors.surface} size="small" />
+          ) : (
+            <Text style={styles.buttonText}>Generate Habit</Text>
+          )}
+        </Pressable>
 
-        {loading ? (
-          <ActivityIndicator color="#C8A96E" size="small" style={{ marginTop: 32 }} />
-        ) : !result ? (
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={() => handleGenerate(savedGoal)}
-            disabled={loading}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.buttonText}>{loading ? 'Generating...' : 'Generate habit'}</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.card}>
+        {result && (
+          <Animated.View entering={FadeInDown.duration(360)} style={styles.card}>
             <Text style={styles.habitText}>{result.habit}</Text>
             <View style={styles.divider} />
             <Text style={styles.reasonText}>{result.reason}</Text>
-          </View>
+
+            <Pressable
+              style={[styles.addButton, isCreating && styles.buttonDisabled]}
+              onPress={handleAdd}
+              disabled={isCreating}
+            >
+              {isCreating ? (
+                <ActivityIndicator color={colors.surface} size="small" />
+              ) : (
+                <Text style={styles.buttonText}>Add This Habit</Text>
+              )}
+            </Pressable>
+
+            <Pressable style={styles.retryLink} onPress={handleGenerate} disabled={isGenerating}>
+              <Text style={styles.retryText}>Try a different suggestion</Text>
+            </Pressable>
+          </Animated.View>
         )}
-      </View>
-    </View>
+      </ScrollView>
+      {/* TabBar is rendered by TabScreen; use it as a wrapper */}
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
     backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  center: {
-    flex: 1,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  inner: {
-    width: '100%',
-    maxWidth: 360,
-    paddingHorizontal: 32,
-  },
-  wordmark: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 6,
-    textTransform: 'uppercase',
-    marginBottom: 28,
+  scroll: { flex: 1 },
+  content: {
+    paddingTop: 64,
+    paddingBottom: 48,
+    paddingHorizontal: 24,
   },
   heading: {
+    fontSize: 32,
+    fontWeight: '700',
     color: colors.text,
-    fontSize: 30,
-    fontWeight: '300',
-    letterSpacing: -0.5,
-    marginBottom: 8,
+    letterSpacing: -0.8,
+    marginBottom: 6,
   },
   sub: {
+    fontSize: 14,
     color: colors.muted,
-    fontSize: 13,
+    lineHeight: 20,
     marginBottom: 32,
   },
-  error: {
-    color: colors.danger,
-    fontSize: 13,
-    marginBottom: 20,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: '#1C0E0E',
-    borderLeftWidth: 2,
-    borderLeftColor: colors.danger,
+  errorBanner: {
+    backgroundColor: colors.dangerBg,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.dangerBorder,
   },
-  fieldGroup: {
-    marginBottom: 20,
+  errorText: {
+    fontSize: 13,
+    color: colors.danger,
+  },
+  field: {
+    gap: 8,
+    marginBottom: 16,
   },
   label: {
-    color: colors.muted,
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 3,
-    marginBottom: 8,
+    color: colors.muted,
+    letterSpacing: 2,
   },
   input: {
-    backgroundColor: '#111',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#222',
+    borderColor: colors.border,
+    borderRadius: 14,
     color: colors.text,
     fontSize: 15,
     paddingHorizontal: 16,
@@ -233,65 +183,69 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: colors.primary,
+    borderRadius: 50,
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 4,
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
   },
   buttonDisabled: {
     opacity: 0.4,
   },
   buttonText: {
-    color: colors.background,
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-  goalRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 28,
-  },
-  goalMeta: {
-    flex: 1,
-  },
-  goalText: {
-    color: colors.text,
+    color: colors.surface,
     fontSize: 15,
-    fontWeight: '300',
-  },
-  editLink: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    paddingTop: 18,
-    paddingLeft: 16,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   card: {
-    marginTop: 32,
+    marginTop: 24,
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: 20,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 20,
-    paddingVertical: 24,
   },
   habitText: {
     color: colors.text,
-    fontSize: 17,
-    fontWeight: '400',
+    fontSize: 18,
+    fontWeight: '500',
     lineHeight: 26,
   },
   divider: {
     height: 1,
     backgroundColor: colors.border,
-    marginVertical: 16,
+    marginVertical: 14,
   },
   reasonText: {
     color: colors.muted,
     fontSize: 13,
     lineHeight: 20,
+    marginBottom: 20,
+  },
+  addButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 50,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
+    marginBottom: 12,
+  },
+  retryLink: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  retryText: {
+    fontSize: 13,
+    color: colors.muted,
   },
 });

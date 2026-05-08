@@ -1,23 +1,21 @@
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import colors from '@/constants/colors';
+import { APP_TABS } from '@/constants/tabs';
 
-const GREEN = '#22C55E';
-const MUTED = '#9CA3AF';
-const BORDER = '#F3F4F6';
-
-const TABS = [
-  { label: 'Today', href: '/', icon: '◎' },
-  { label: 'History', href: '/history', icon: '≡' },
-  { label: 'Insights', href: '/insights', icon: '✦' },
-] as const;
+const GREEN = colors.primary;
+const MUTED = colors.muted;
+const BORDER = colors.border;
 
 export default function TabBar() {
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.bar}>
-      {TABS.map((tab) => {
+    <View style={[styles.bar, { paddingBottom: 12 + insets.bottom }]}>
+      {APP_TABS.map((tab) => {
         const active = pathname === tab.href || (tab.href === '/' && pathname === '/index');
         return (
           <Pressable
@@ -41,7 +39,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: BORDER,
-    paddingBottom: 28,
+    paddingBottom: 12,
     paddingTop: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },

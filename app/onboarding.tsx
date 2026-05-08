@@ -24,36 +24,32 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import colors from '../constants/colors';
 
 const { width, height } = Dimensions.get('window');
 
-const GREEN = '#22C55E';
-const GREEN_PALE = '#DCFCE7';
 const GREEN_MID = '#86EFAC';
-const CREAM = '#FAFAF8';
-const INK = '#0C0C0C';
-const MUTED = '#A0A0A0';
 
 const SLIDES = [
   {
     key: '1',
     index: '01',
-    headline: 'Build tiny\nhabits that\nstick.',
-    sub: 'Small actions, done daily, reshape who you become.',
+    headline: 'Build tiny habits\nthat stick.',
+    sub: 'Small actions. Big results.',
     blobOffset: -30,
   },
   {
     key: '2',
     index: '02',
-    headline: 'AI adapts\nto your\nprogress.',
-    sub: 'Your habits evolve with you — never too hard, never too easy.',
+    headline: 'AI adapts to\nyour progress.',
+    sub: 'Smarter habits over time.',
     blobOffset: 20,
   },
   {
     key: '3',
     index: '03',
-    headline: 'Start your\nfirst 1%\ntoday.',
-    sub: "One percent better, every day. That's all it takes.",
+    headline: 'Start your\nfirst 1% today.',
+    sub: 'Your journey begins now.',
     blobOffset: -10,
   },
 ];
@@ -144,13 +140,13 @@ function Background() {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {/* Large anchor blob top-right */}
-      <Blob size={width * 0.8} color={GREEN_PALE} top={-width * 0.25} left={width * 0.35} delay={0} duration={4200} />
+      <Blob size={width * 0.8} color={colors.primaryLight} top={-width * 0.25} left={width * 0.35} delay={0} duration={4200} />
       {/* Mid blob center-left */}
       <Blob size={width * 0.55} color={`${GREEN_MID}55`} top={height * 0.28} left={-width * 0.18} delay={600} duration={5100} />
       {/* Small accent bottom-right */}
-      <Blob size={width * 0.38} color={GREEN_PALE} top={height * 0.62} left={width * 0.6} delay={1200} duration={3800} />
+      <Blob size={width * 0.38} color={colors.primaryLight} top={height * 0.62} left={width * 0.6} delay={1200} duration={3800} />
       {/* Tiny top-left whisper */}
-      <Blob size={width * 0.22} color={`${GREEN}22`} top={height * 0.1} left={-width * 0.05} delay={900} duration={4600} />
+      <Blob size={width * 0.22} color={`${colors.primary}22`} top={height * 0.1} left={-width * 0.05} delay={900} duration={4600} />
     </View>
   );
 }
@@ -235,7 +231,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={CREAM} />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       <Background />
 
       {/* Top bar */}
@@ -279,10 +275,12 @@ export default function OnboardingScreen() {
           onPress={handleNext}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
         >
-          <Text style={styles.buttonText}>{isLast ? 'Get Started' : 'Continue'}</Text>
-          <View style={styles.buttonArrow}>
-            <Text style={styles.arrowText}>→</Text>
-          </View>
+          <Text style={styles.buttonText}>{isLast ? 'Get Started' : 'Next'}</Text>
+          {!isLast && (
+            <View style={styles.buttonArrow}>
+              <Text style={styles.arrowText}>→</Text>
+            </View>
+          )}
         </Pressable>
       </Animated.View>
     </View>
@@ -292,7 +290,7 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: CREAM,
+    backgroundColor: colors.background,
   },
 
   topBar: {
@@ -308,14 +306,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 5,
-    color: GREEN,
+    color: colors.primary,
     textTransform: 'uppercase',
   },
 
   skipLabel: {
     fontSize: 13,
     fontWeight: '400',
-    color: MUTED,
+    color: colors.muted,
     letterSpacing: 0.3,
   },
 
@@ -333,7 +331,7 @@ const styles = StyleSheet.create({
     right: -14,
     fontSize: height * 0.26,
     fontWeight: '800',
-    color: `${GREEN}0D`,
+    color: `${colors.primary}0D`,
     letterSpacing: -8,
     lineHeight: height * 0.28,
   },
@@ -343,12 +341,11 @@ const styles = StyleSheet.create({
   },
 
   headline: {
-    fontSize: 46,
-    fontWeight: '300',
-    color: INK,
+    fontSize: 40,
+    fontWeight: '700',
+    color: colors.text,
     letterSpacing: -1.5,
-    lineHeight: 54,
-    fontStyle: 'normal',
+    lineHeight: 50,
   },
 
   dividerRow: {
@@ -358,16 +355,15 @@ const styles = StyleSheet.create({
   divider: {
     width: 32,
     height: 2,
-    backgroundColor: GREEN,
+    backgroundColor: colors.primary,
     borderRadius: 2,
   },
 
   sub: {
-    fontSize: 15,
-    fontWeight: '300',
-    color: MUTED,
+    fontSize: 16,
+    fontWeight: '400',
+    color: colors.muted,
     lineHeight: 24,
-    maxWidth: 260,
     letterSpacing: 0.1,
   },
 
@@ -386,21 +382,22 @@ const styles = StyleSheet.create({
   dot: {
     height: 3,
     borderRadius: 99,
-    backgroundColor: GREEN,
+    backgroundColor: colors.primary,
   },
 
   button: {
-    backgroundColor: INK,
-    borderRadius: 16,
+    backgroundColor: colors.primary,
+    borderRadius: 50,
     paddingVertical: 18,
     paddingHorizontal: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: INK,
+    justifyContent: 'center',
+    gap: 10,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
     elevation: 8,
   },
 
@@ -411,23 +408,23 @@ const styles = StyleSheet.create({
 
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
 
   buttonArrow: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: GREEN,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   arrowText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     lineHeight: 18,
   },

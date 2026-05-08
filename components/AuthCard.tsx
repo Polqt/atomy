@@ -11,6 +11,7 @@ import {
   TextInputProps,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -68,9 +69,10 @@ function AmbientOrb() {
 type FieldProps = TextInputProps & {
   label: string;
   delay?: number;
+  error?: string;
 };
 
-export function AuthField({ label, delay = 0, style, ...props }: FieldProps) {
+export function AuthField({ label, delay = 0, error, style, ...props }: FieldProps) {
   const [focused, setFocused] = useState(false);
   const underlineWidth = useSharedValue(0);
   const labelScale = useSharedValue(1);
@@ -97,10 +99,10 @@ export function AuthField({ label, delay = 0, style, ...props }: FieldProps) {
 
   return (
     <Animated.View entering={FadeInDown.duration(420).delay(delay)} style={styles.fieldWrap}>
-      <Animated.Text style={[styles.fieldLabel, focused && styles.fieldLabelFocused, labelStyle]}>
+      <Animated.Text style={[styles.fieldLabel, focused && styles.fieldLabelFocused, error && styles.fieldLabelError, labelStyle]}>
         {label}
       </Animated.Text>
-      <View style={[styles.inputWrap, focused && styles.inputWrapFocused]}>
+      <View style={[styles.inputWrap, focused && styles.inputWrapFocused, error && styles.inputWrapError]}>
         <TextInput
           style={[styles.input, style]}
           placeholderTextColor={MUTED}
@@ -108,11 +110,15 @@ export function AuthField({ label, delay = 0, style, ...props }: FieldProps) {
           onBlur={handleBlur}
           {...props}
         />
-        {/* Sweep underline */}
         <View style={styles.underlineTrack}>
-          <Animated.View style={[styles.underlineBar, underlineStyle]} />
+          <Animated.View style={[styles.underlineBar, error && styles.underlineBarError, underlineStyle]} />
         </View>
       </View>
+      {error ? (
+        <Animated.Text entering={FadeIn.duration(220)} style={styles.fieldError}>
+          {error}
+        </Animated.Text>
+      ) : null}
     </Animated.View>
   );
 }
@@ -155,7 +161,7 @@ export function AuthButton({ label, onPress, loading, disabled, delay = 0 }: But
   );
 }
 
-// Error banner
+// Error banner (kept for compatibility, used for auth-level errors)
 export function AuthError({ message }: { message: string }) {
   if (!message) return null;
   return (
@@ -166,33 +172,55 @@ export function AuthError({ message }: { message: string }) {
   );
 }
 
+// "or continue with" divider
+export function AuthDivider() {
+  return (
+    <View style={styles.dividerRow}>
+      <View style={styles.dividerLine} />
+      <Text style={styles.dividerText}>or continue with</Text>
+      <View style={styles.dividerLine} />
+    </View>
+  );
+}
+
+// OAuth provider button
+export function AuthOAuthButton({ label, icon, onPress }: { label: string; icon: string; onPress: () => void }) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Animated.View style={animStyle}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => { scale.value = withSpring(0.97, { damping: 18, stiffness: 300 }); }}
+        onPressOut={() => { scale.value = withSpring(1, { damping: 14, stiffness: 220 }); }}
+        style={styles.oauthBtn}
+      >
+        <Text style={styles.oauthIcon}>{icon}</Text>
+        <Text style={styles.oauthLabel}>{label}</Text>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 // The card shell shared by login + signup
 type CardProps = {
   children: React.ReactNode;
 };
 
 export function AuthCardShell({ children }: CardProps) {
+  const insets = useSafeAreaInsets();
+
   return (
     <KeyboardAvoidingView
-      style={styles.root}
+      style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <AmbientOrb />
 
       <Animated.View entering={FadeInDown.duration(520).delay(60)} style={styles.card}>
-        {/* Top wordmark strip */}
-        <Animated.View entering={FadeIn.duration(380)} style={styles.brandRow}>
-          <View style={styles.brandDot} />
-          <Text style={styles.wordmark}>atomy</Text>
-        </Animated.View>
-
         {children}
       </Animated.View>
-
-      {/* Bottom legal note */}
-      <Animated.Text entering={FadeIn.duration(400).delay(600)} style={styles.legalNote}>
-        Your data is encrypted and never shared.
-      </Animated.Text>
     </KeyboardAvoidingView>
   );
 }
@@ -314,7 +342,7 @@ const styles = StyleSheet.create({
   // Button
   button: {
     backgroundColor: GREEN,
-    borderRadius: 14,
+    borderRadius: 50,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -331,12 +359,31 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
 
-  // Error
+  // Field-level error
+  fieldLabelError: {
+    color: ERROR_TEXT,
+  },
+  inputWrapError: {
+    borderColor: '#FECACA',
+    backgroundColor: ERROR_BG,
+  },
+  underlineBarError: {
+    backgroundColor: ERROR_TEXT,
+  },
+  fieldError: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: ERROR_TEXT,
+    marginTop: 5,
+    letterSpacing: 0.1,
+  },
+
+  // Error banner
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -363,6 +410,49 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: ERROR_TEXT,
     lineHeight: 19,
+  },
+
+  // Divider
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: BORDER,
+  },
+  dividerText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: MUTED,
+    letterSpacing: 0.3,
+  },
+
+  // OAuth button
+  oauthBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 50,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    marginBottom: 10,
+  },
+  oauthIcon: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  oauthLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: INK,
+    letterSpacing: 0.1,
   },
 
   // Legal

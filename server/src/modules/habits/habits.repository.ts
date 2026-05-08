@@ -1,8 +1,8 @@
 import { Injectable, Inject } from '@nestjs/common';
+import { and, desc, eq } from 'drizzle-orm';
 import { DB_CONNECTION } from '../../database/database.constants';
 import { DatabaseType } from '../../database/database.module';
 import * as schema from '../../database/schema';
-import { eq, and } from 'drizzle-orm';
 
 @Injectable()
 export class HabitsRepository {
@@ -12,15 +12,18 @@ export class HabitsRepository {
     return this.db
       .select()
       .from(schema.habitsTable)
-      .where(eq(schema.habitsTable.userId, userId));
+      .where(eq(schema.habitsTable.userId, userId))
+      .orderBy(desc(schema.habitsTable.createdAt));
   }
 
   async findById(id: string, userId: string) {
-    return this.db
+    const rows = await this.db
       .select()
       .from(schema.habitsTable)
       .where(and(eq(schema.habitsTable.id, id), eq(schema.habitsTable.userId, userId)))
       .limit(1);
+
+    return rows[0] ?? null;
   }
 
   async create(data: {
@@ -47,6 +50,7 @@ export class HabitsRepository {
   async delete(id: string, userId: string) {
     return this.db
       .delete(schema.habitsTable)
-      .where(and(eq(schema.habitsTable.id, id), eq(schema.habitsTable.userId, userId)));
+      .where(and(eq(schema.habitsTable.id, id), eq(schema.habitsTable.userId, userId)))
+      .returning({ id: schema.habitsTable.id });
   }
 }

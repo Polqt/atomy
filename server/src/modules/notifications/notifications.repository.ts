@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { DB_CONNECTION } from '../../database/database.constants';
 import { DatabaseType } from '../../database/database.module';
 import * as schema from '../../database/schema';
@@ -23,5 +23,23 @@ export class NotificationsRepository {
     return this.db
       .select({ token: schema.pushTokensTable.token })
       .from(schema.pushTokensTable);
+  }
+
+  async deleteTokensByUserId(userId: string) {
+    return this.db
+      .delete(schema.pushTokensTable)
+      .where(eq(schema.pushTokensTable.userId, userId))
+      .returning();
+  }
+
+  async deleteTokens(tokens: string[]) {
+    if (tokens.length === 0) {
+      return [];
+    }
+
+    return this.db
+      .delete(schema.pushTokensTable)
+      .where(inArray(schema.pushTokensTable.token, tokens))
+      .returning({ token: schema.pushTokensTable.token });
   }
 }

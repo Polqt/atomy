@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards, BadRequestException } from '@nestjs/common';
 import { SupabaseJwtGuard } from '../../common/supabase-jwt.guard';
 import { CurrentUser } from '../../common/current-user.decorator';
 import { NotificationsService } from './notifications.service';
@@ -15,5 +15,13 @@ export class NotificationsController {
     @Body() dto: RegisterTokenDto,
   ) {
     return this.notificationsService.registerToken(userId, dto);
+  }
+
+  @Post('disable')
+  async disable(@CurrentUser('id') userId: string) {
+    if (!userId) {
+      throw new BadRequestException('User ID not found in token');
+    }
+    return this.notificationsService.disableForUser(userId);
   }
 }

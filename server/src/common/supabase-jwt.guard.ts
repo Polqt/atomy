@@ -1,5 +1,17 @@
-import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, UnauthorizedException, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+let supabaseClient: SupabaseClient | null = null;
+
+function getSupabaseClient(configService: ConfigService): SupabaseClient {
+  if (!supabaseClient) {
+    const supabaseUrl = configService.getOrThrow<string>('SUPABASE_URL');
+    const supabaseServiceKey = configService.getOrThrow<string>('SUPABASE_SERVICE_ROLE_KEY');
+    supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
+  }
+  return supabaseClient;
+}
 
 @Injectable()
 export class SupabaseJwtGuard implements CanActivate {
@@ -19,14 +31,7 @@ export class SupabaseJwtGuard implements CanActivate {
     }
 
     try {
-      const supabaseUrl = this.configService.getOrThrow<string>('SUPABASE_URL');
-      const supabaseServiceKey = this.configService.getOrThrow<string>(
-        'SUPABASE_SERVICE_ROLE_KEY',
-      );
-
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
+      const supabase = getSupabaseClient(this.configService);
       const { data, error } = await supabase.auth.getUser(token);
 
       if (error || !data.user) {

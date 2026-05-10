@@ -7,8 +7,12 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Security headers
   app.use(helmet());
 
+  // CORS configuration
+  // IMPORTANT: For production, configure ALLOWED_ORIGINS with actual domain(s)
+  // HTTPS should be enforced at the load balancer/reverse proxy level, not in the app
   const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') ?? ['http://localhost:3000'];
   app.enableCors({
     origin: allowedOrigins,
@@ -17,6 +21,7 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+  // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

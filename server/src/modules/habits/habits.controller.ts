@@ -8,20 +8,44 @@ import {
   Body,
   Param,
   ParseUUIDPipe,
+  Query,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { HabitsService } from './habits.service';
 import { SupabaseJwtGuard } from '../../common/supabase-jwt.guard';
 import { CurrentUser } from '../../common/current-user.decorator';
-import { CreateHabitDto, UpdateHabitDto } from './dto/habit.dto';
+import { CreateHabitDto, UpdateHabitDto, PaginationDto } from './dto/habit.dto';
 
 @Controller('api/habits')
 @UseGuards(SupabaseJwtGuard)
+@Throttle({ default: { ttl: 60000, limit: 30 } })
 export class HabitsController {
   constructor(private readonly habitsService: HabitsService) {}
 
   @Get()
-  async getHabits(@CurrentUser('id') userId: string) {
-    return this.habitsService.getHabitsByUser(userId);
+  async getHabits(
+    @CurrentUser('id') userId: string,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.habitsService.getHabitsByUser(userId, pagination.limit, pagination.offset);
+  }
+
+  @Get('today')
+  async getTodayHabits(@CurrentUser('id') userId: string) {
+    return this.habitsService.getTodayHabitsByUser(userId);
+  }
+
+  @Get('history')
+  async getHistory(
+    @CurrentUser('id') userId: string,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.habitsService.getHistoryByUser(userId, pagination.limit, pagination.offset);
+  }
+
+  @Get('streak')
+  async getStreak(@CurrentUser('id') userId: string) {
+    return this.habitsService.getCurrentStreak(userId);
   }
 
   @Get(':id')

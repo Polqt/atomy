@@ -19,7 +19,11 @@ export type DatabaseType = PostgresJsDatabase<{
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => {
         const databaseUrl = configService.getOrThrow<string>('DATABASE_URL');
-        const client = postgres(databaseUrl);
+        const client = postgres(databaseUrl, {
+          max: 20,
+          idle_timeout: 20,
+          connect_timeout: 10,
+        });
         return drizzle(client, { schema });
       },
     },

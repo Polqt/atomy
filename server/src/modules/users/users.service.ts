@@ -25,13 +25,21 @@ function mergePreferences(
   preferences?: Record<string, unknown>,
 ) {
   const avatarUrl = readString(userMetadata?.avatar_url);
-  const metadataPreferences = avatarUrl ? { avatarUrl } : undefined;
-
-  if (metadataPreferences && preferences) {
-    return { ...metadataPreferences, ...preferences };
+  
+  // Start with provided preferences if any
+  const merged: Record<string, unknown> = { ...preferences };
+  
+  // Add avatarUrl from metadata if not already set by user
+  if (avatarUrl && !merged.avatarUrl) {
+    merged.avatarUrl = avatarUrl;
   }
 
-  return preferences ?? metadataPreferences;
+  // Return undefined if nothing to merge
+  if (Object.keys(merged).length === 0) {
+    return undefined;
+  }
+
+  return merged;
 }
 
 @Injectable()

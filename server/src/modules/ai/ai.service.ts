@@ -36,7 +36,7 @@ Respond ONLY with valid JSON, no markdown, no extra text:
 Goal: ${dto.goal}
 History: ${JSON.stringify((dto.history ?? []).slice(-10))}`;
 
-    const result = await this.callGroq(prompt, 256);
+    const result = await this.callGroq(prompt, 256, ['habit', 'reason'], 500);
     
     try {
       await this.repo.logRequest({
@@ -67,7 +67,7 @@ Respond ONLY with valid JSON, no markdown, no extra text:
   "insight": "one specific, actionable suggestion they can apply starting tomorrow"
 }`;
 
-    const result = await this.callGroq(prompt, 512);
+    const result = await this.callGroq(prompt, 512, ['summary', 'insight'], 1000);
 
     try {
       await this.repo.logRequest({
@@ -83,7 +83,53 @@ Respond ONLY with valid JSON, no markdown, no extra text:
     return result;
   }
 
-  private async callGroq(prompt: string, maxTokens: number): Promise<Record<string, string>> {
+  private extractJsonObject(text: string) {
+    const trimmed = text.trim();
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      return trimmed;
+    }
+
+    const first = text.indexOf('{');
+    const last = text.lastIndexOf('}');
+    if (first >= 0 && last > first) {
+      return text.slice(first, last + 1);
+    }
+
+    return '{}';
+  }
+
+  private ensureStringKeys(
+    payload: unknown,
+    requiredKeys: string[],
+    maxLength: number = 1000,
+  ): Record<string, string> {
+    if (!payload || typeof payload !== 'object') {
+      throw new BadRequestException('AI returned invalid payload shape');
+    }
+
+    const record = payload as Record<string, unknown>;
+    const normalized: Record<string, string> = {};
+
+    for (const key of requiredKeys) {
+      const value = record[key];
+      if (typeof value !== 'string' || value.trim().length === 0) {
+        throw new BadRequestException(`AI response missing required field: ${key}`);
+      }
+      if (value.length > maxLength) {
+        throw new BadRequestException(`AI response field ${key} exceeds max length of ${maxLength}`);
+      }
+      normalized[key] = value.trim();
+    }
+
+    return normalized;
+  }
+
+  private async callGroq(
+    prompt: string,
+    maxTokens: number,
+    requiredKeys: string[],
+    maxFieldLength: number = 500,
+  ): Promise<Record<string, string>> {
     try {
       const res = await fetch(this.groqApiUrl, {
         method: 'POST',
@@ -107,10 +153,9 @@ Respond ONLY with valid JSON, no markdown, no extra text:
 
       const data = (await res.json()) as any;
       const text: string = data.choices?.[0]?.message?.content ?? '{}';
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      const jsonStr = jsonMatch ? jsonMatch[0] : '{}';
-
-      return JSON.parse(jsonStr);
+      const jsonStr = this.extractJsonObject(text);
+      const parsed = JSON.parse(jsonStr) as unknown;
+      return this.ensureStringKeys(parsed, requiredKeys, maxFieldLength);
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;

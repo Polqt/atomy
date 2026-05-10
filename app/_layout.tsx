@@ -12,15 +12,6 @@ import {
 import { authorizedRequest, getApiUrl } from '../services/backend';
 import SplashScreen from '../components/SplashScreen';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30_000,
-    },
-  },
-});
-
 // Ensures the user row exists in public.users before any habit inserts
 function UserSync() {
   const { session } = useAuth();
@@ -105,14 +96,25 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
 
 export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: 1,
+            staleTime: 30_000,
+          },
+        },
+      }),
+  );
 
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
   return (
-    <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
         <AuthProvider>
           <UserSync />
           <PushTokenSync />
@@ -120,7 +122,7 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false }} />
           </OnboardingGate>
         </AuthProvider>
-      </QueryClientProvider>
-    </SafeAreaProvider>
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }

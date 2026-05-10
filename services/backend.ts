@@ -82,6 +82,7 @@ export async function authorizedRequest(
   path: string,
   init: RequestInit = {},
   accessToken?: string,
+  timeoutMs: number = 10000,
 ) {
   const token = await getAccessToken(accessToken);
   const headers = new Headers(init.headers);
@@ -91,17 +92,30 @@ export async function authorizedRequest(
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(`${requireApiUrl()}${path}`, {
-    ...init,
-    headers,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!response.ok) {
-    const payload = await readResponsePayload(response);
-    throw new Error(getErrorMessage(payload, response.status));
+  try {
+    const response = await fetch(`${requireApiUrl()}${path}`, {
+      ...init,
+      headers,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const payload = await readResponsePayload(response);
+      throw new Error(getErrorMessage(payload, response.status));
+    }
+
+    return response;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Request timed out');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return response;
 }
 
 export async function authorizedJson<T>(

@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   reasonText: {
     fontSize: 13,
     fontWeight: '400',
-    color: '#6B7280',
+    color: colors.muted,
     lineHeight: 19,
   },
   actions: {
@@ -313,13 +313,13 @@ const styles = StyleSheet.create({
   },
   doneIcon: {
     fontSize: 16,
-    color: '#fff',
+    color: colors.surface,
     fontWeight: '700',
   },
   doneText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.surface,
     letterSpacing: 0.2,
   },
   skipLink: {
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
   },
   checkIconDone: {
-    color: '#fff',
+    color: colors.surface,
   },
 
   // Done / state card
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
   stateHabitText: {
     fontSize: 15,
     fontWeight: '300',
-    color: '#6B7280',
+    color: colors.muted,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 12,
@@ -472,26 +472,26 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.primaryPale,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
   },
   emptyPlusIcon: {
     fontSize: 32,
-    color: '#22C55E',
+    color: colors.primary,
     fontWeight: '300',
     lineHeight: 36,
   },
   emptyHeading: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0F172A',
+    color: colors.text,
     marginBottom: 8,
   },
   emptySub: {
     fontSize: 14,
-    color: '#64748B',
+    color: colors.muted,
     textAlign: 'center',
     width: 260,
     lineHeight: 20,

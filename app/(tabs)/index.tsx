@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import Animated, {
-  FadeIn,
   FadeInDown,
   FadeInUp,
+  FadeIn,
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
@@ -19,7 +19,7 @@ import { useTodayHabits } from '../../hooks/useTodayHabit';
 import { useStreak } from '../../hooks/useStreak';
 import { useMarkHabit } from '../../hooks/useMarkHabit';
 import colors from '../../constants/colors';
-import { getDisplayNameFromEmail, getGreeting, getInitial } from '@/utils/user';
+import { getDisplayNameFromEmail, getGreeting } from '@/utils/user';
 
 function StreakBadge({ count }: { count: number }) {
   const scale = useSharedValue(1);
@@ -56,17 +56,8 @@ export default function HomeScreen() {
   const { mutate: mark } = useMarkHabit();
   const [actingId, setActingId] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [contentKey, setContentKey] = useState(0);
 
   const displayName = (user?.user_metadata?.name as string | undefined) || getDisplayNameFromEmail(user?.email, 'there');
-  
-  const wasLoading = useRef(true);
-  useEffect(() => {
-    if (!loading && wasLoading.current) {
-      setContentKey((k) => k + 1);
-      wasLoading.current = false;
-    }
-  }, [loading]);
 
   const displayError = (queryError as Error)?.message || error;
 
@@ -82,6 +73,14 @@ export default function HomeScreen() {
       },
     );
   };
+
+  // Clear error after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   return (
     <TabScreen>
@@ -103,13 +102,13 @@ export default function HomeScreen() {
 
         {/* Error banner */}
         {displayError ? (
-          <Animated.View entering={FadeIn.duration(280)} style={styles.errorBanner}>
+          <Animated.View entering={FadeInDown.duration(280)} style={styles.errorBanner}>
             <Text style={styles.errorText}>{displayError}</Text>
           </Animated.View>
         ) : null}
 
         {/* Main content */}
-        <Animated.View key={contentKey} entering={FadeIn.duration(300)} style={styles.mainContent}>
+        <Animated.View entering={FadeInDown.duration(300)} style={styles.mainContent}>
           {loading ? (
             <LoadingSkeleton />
           ) : habits.length === 0 ? (

@@ -1,0 +1,1 @@
+ALTER TABLE public.ai_requests ENABLE ROW LEVEL SECURITY;;

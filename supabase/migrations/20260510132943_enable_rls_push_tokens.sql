@@ -1,0 +1,1 @@
+ALTER TABLE public.push_tokens ENABLE ROW LEVEL SECURITY;;

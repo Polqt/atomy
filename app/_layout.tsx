@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, usePathname } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -79,18 +79,31 @@ function PushTokenSync() {
 
 function OnboardingGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [ready, setReady] = useState(false);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('onboarding_complete').then((value) => {
-      if (!value) {
-        router.replace('/onboarding');
-      }
+      setNeedsOnboarding(!value);
       setReady(true);
     });
   }, []);
 
+  // Show nothing while checking
   if (!ready) return null;
+
+  // Allow onboarding route to work if needed
+  if (needsOnboarding && pathname !== '/onboarding') {
+    router.replace('/onboarding');
+    return null;
+  }
+
+  // Skip if on onboarding page (let it render normally)
+  if (pathname === '/onboarding') {
+    return <>{children}</>;
+  }
+
   return <>{children}</>;
 }
 

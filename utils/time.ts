@@ -1,9 +1,10 @@
-import { HabitRow } from "@/services/habits";
 import { DayCompletionSummary } from "./habit-stats";
+
+type TimeGroupedHabit = { created_at: string };
 
 type Section = {
   title: string; // YYYY-MM-DD
-  data: HabitRow[];
+  data: TimeGroupedHabit[];
 };
 
 
@@ -29,8 +30,8 @@ export function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
-export function groupByDate(habits: HabitRow[]): Section[] {
-  const map = new Map<string, HabitRow[]>();
+export function groupByDate<T extends TimeGroupedHabit>(habits: T[]): Array<{ title: string; data: T[] }> {
+  const map = new Map<string, T[]>();
   for (const h of habits) {
     const day = h.created_at.slice(0, 10);
     if (!map.has(day)) map.set(day, []);

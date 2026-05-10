@@ -5,7 +5,7 @@ import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { type HabitEntry } from '../../services/ai';
 import TabScreen from '@/components/TabScreen';
 import MiniBarGroup from '@/components/MiniBarGroup';
-import { useHabits } from '../../hooks/useHabits';
+import { useHabitHistory } from '../../hooks/useHabitHistory';
 import { useWeeklyInsight } from '../../hooks/useWeeklyInsight';
 import colors from '../../constants/colors';
 import {
@@ -20,7 +20,7 @@ import { getFallbackWeeklyInsight } from '@/utils/insights';
 
 export default function InsightsScreen() {
   const insets = useSafeAreaInsets();
-  const { data: habits = [] } = useHabits();
+  const { data: habits = [] } = useHabitHistory();
   const { mutate: fetchInsight, data: aiInsight, isPending: loading } = useWeeklyInsight();
   const requestedKeyRef = useRef('');
 

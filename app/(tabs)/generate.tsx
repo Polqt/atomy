@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,9 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import TabScreen from '@/components/TabScreen';
 import { useGenerateHabit } from '../../hooks/useGenerateHabit';
 import { useCreateHabit } from '../../hooks/useCreateHabit';
+import { useHabits } from '../../hooks/useHabits';
 import colors from '../../constants/colors';
+import type { HabitEntry } from '../../services/ai';
 
 export default function GenerateScreen() {
   const router = useRouter();
@@ -25,6 +27,16 @@ export default function GenerateScreen() {
 
   const { mutateAsync: generate, isPending: isGenerating } = useGenerateHabit();
   const { mutateAsync: create, isPending: isCreating } = useCreateHabit();
+  const { data: habits = [] } = useHabits();
+
+  const history = useMemo<HabitEntry[]>(
+    () =>
+      habits
+        .slice(0, 20)
+        .reverse()
+        .map((h) => ({ habit: h.habit, completed: h.completed })),
+    [habits],
+  );
 
   const canGenerate = goal.trim().length > 0 && !isGenerating;
 
@@ -33,7 +45,7 @@ export default function GenerateScreen() {
     setError('');
     setResult(null);
     try {
-      const data = await generate({ goal: goal.trim(), history: [] });
+      const data = await generate({ goal: goal.trim(), history });
       setResult(data);
     } catch (e: any) {
       setError(e.message ?? 'Something went wrong.');

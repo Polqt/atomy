@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { markHabit, type TodayHabit, type HabitRow } from '../services/habits';
+import { markHabit, type TodayHabit } from '../services/habits';
 import { queryKeys } from './queryKeys';
 
 export function useMarkHabit() {
@@ -11,35 +11,27 @@ export function useMarkHabit() {
 
     onMutate: async ({ id, completed }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.todayHabits });
-      await queryClient.cancelQueries({ queryKey: queryKeys.habits });
+      await queryClient.cancelQueries({ queryKey: queryKeys.history });
 
       const prevToday = queryClient.getQueryData<TodayHabit[]>(queryKeys.todayHabits);
-      const prevHabits = queryClient.getQueryData<HabitRow[]>(queryKeys.habits);
 
       queryClient.setQueryData<TodayHabit[]>(
         queryKeys.todayHabits,
         (old) => old?.map((h) => (h.id === id ? { ...h, completed } : h)),
       );
-      queryClient.setQueryData<HabitRow[]>(
-        queryKeys.habits,
-        (old) => old?.map((h) => (h.id === id ? { ...h, completed } : h)),
-      );
 
-      return { prevToday, prevHabits };
+      return { prevToday };
     },
 
     onError: (_err, _vars, context) => {
       if (context?.prevToday !== undefined) {
         queryClient.setQueryData(queryKeys.todayHabits, context.prevToday);
       }
-      if (context?.prevHabits !== undefined) {
-        queryClient.setQueryData(queryKeys.habits, context.prevHabits);
-      }
     },
 
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.todayHabits });
-      queryClient.invalidateQueries({ queryKey: queryKeys.habits });
+      queryClient.invalidateQueries({ queryKey: queryKeys.history });
       queryClient.invalidateQueries({ queryKey: queryKeys.streak });
     },
   });

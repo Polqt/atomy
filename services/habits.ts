@@ -1,5 +1,4 @@
 import { authorizedJson, authorizedRequest } from './backend';
-import { computeCurrentStreak } from '@/utils/habit-stats';
 
 export type TodayHabit = {
   id: string;
@@ -10,6 +9,16 @@ export type TodayHabit = {
 
 export type HabitRow = {
   id: string;
+  goal: string;
+  habit: string;
+  completed: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HabitHistoryRow = {
+  id: string;
+  habit_id: string;
   goal: string;
   habit: string;
   completed: boolean;
@@ -25,9 +34,35 @@ type HabitApiRow = {
   updatedAt?: string;
 };
 
+type HabitHistoryApiRow = {
+  id: string;
+  habitId: string;
+  goal: string;
+  habit: string;
+  completed: boolean;
+  createdAt: string;
+};
+
 function normalizeHabit(row: HabitApiRow): HabitRow {
+  const createdAt = new Date(row.createdAt).toISOString();
+  const updatedAt = row.updatedAt
+    ? new Date(row.updatedAt).toISOString()
+    : createdAt;
+
   return {
     id: row.id,
+    goal: row.goal,
+    habit: row.habit,
+    completed: row.completed,
+    created_at: createdAt,
+    updated_at: updatedAt,
+  };
+}
+
+function normalizeHabitHistory(row: HabitHistoryApiRow): HabitHistoryRow {
+  return {
+    id: row.id,
+    habit_id: row.habitId,
     goal: row.goal,
     habit: row.habit,
     completed: row.completed,
@@ -43,26 +78,32 @@ async function fetchHabits(): Promise<HabitRow[]> {
 }
 
 export async function getTodayHabits(): Promise<TodayHabit[]> {
-  const habits = await fetchHabits();
-
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-
-  const tomorrowStart = new Date(todayStart);
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-
-  return habits.filter((habit) => {
-    const createdAt = new Date(habit.created_at);
-    return createdAt >= todayStart && createdAt < tomorrowStart;
-  });
+  const rows = await authorizedJson<HabitApiRow[]>('/api/habits/today');
+  return (rows ?? []).map(normalizeHabit).map((habit) => ({
+    id: habit.id,
+    goal: habit.goal,
+    habit: habit.habit,
+    completed: habit.completed,
+  }));
 }
 
 export async function getHabits(): Promise<HabitRow[]> {
   return fetchHabits();
 }
 
+export async function getHabitHistory(): Promise<HabitHistoryRow[]> {
+  const rows = await authorizedJson<HabitHistoryApiRow[]>('/api/habits/history');
+  return (rows ?? [])
+    .map(normalizeHabitHistory)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
 export async function getStreak(): Promise<number> {
-  return computeCurrentStreak(await fetchHabits());
+  const data = await authorizedJson<{ streak?: number }>('/api/habits/streak');
+  if (typeof data?.streak === 'number') {
+    return data.streak;
+  }
+  return 0;
 }
 
 export async function updateHabit(id: string, habit: string, goal: string): Promise<void> {

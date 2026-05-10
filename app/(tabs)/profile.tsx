@@ -1,5 +1,5 @@
 import { View, Text, Pressable, StyleSheet, ScrollView, Switch, Image } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import TabScreen from '@/components/TabScreen';
 import { useAuth } from '../../context/AuthContext';
@@ -7,11 +7,20 @@ import { useHabits } from '../../hooks/useHabits';
 import colors from '../../constants/colors';
 import { getCompletionStats } from '@/utils/habit-stats';
 import { getDisplayNameFromEmail, getInitial } from '@/utils/user';
+import {
+  clearStoredPushToken,
+  disablePushNotificationsOnBackend,
+  getNotificationsEnabled,
+  registerForPushNotifications,
+  setNotificationsEnabled,
+  syncPushTokenWithBackend,
+} from '@/services/notifications';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { data: habits = [] } = useHabits();
   const [notifications, setNotifications] = useState(true);
+  const [loadingNotifications, setLoadingNotifications] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
 
   const email = user?.email ?? '';
@@ -20,12 +29,54 @@ export default function ProfileScreen() {
   const initial = getInitial(displayName);
   const { completed: totalDone, total, rate } = getCompletionStats(habits);
 
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const enabled = await getNotificationsEnabled();
+        if (!alive) return;
+        setNotifications(enabled);
+      } finally {
+        if (alive) setLoadingNotifications(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const handleSignOut = async () => {
     setSigningOut(true);
     try {
       await signOut();
     } catch {
       setSigningOut(false);
+    }
+  };
+
+  const handleToggleNotifications = async (enabled: boolean) => {
+    setNotifications(enabled);
+    await setNotificationsEnabled(enabled);
+
+    if (!user) return;
+
+    try {
+      const { supabase } = await import('@/config/supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? null;
+      if (!token) return;
+
+      if (enabled) {
+        const pushToken = await registerForPushNotifications();
+        if (pushToken) {
+          await syncPushTokenWithBackend(pushToken, token);
+        }
+      } else {
+        await disablePushNotificationsOnBackend(token);
+        await clearStoredPushToken();
+      }
+    } catch {
+      // Keep setting persisted; failures here shouldn't flip UI back.
     }
   };
 
@@ -77,7 +128,8 @@ export default function ProfileScreen() {
               </View>
               <Switch
                 value={notifications}
-                onValueChange={setNotifications}
+                onValueChange={handleToggleNotifications}
+                disabled={loadingNotifications}
                 trackColor={{ false: colors.border, true: colors.primaryLight }}
                 thumbColor={notifications ? colors.primary : '#fff'}
               />

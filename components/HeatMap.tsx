@@ -1,14 +1,15 @@
 import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import colors from '@/constants/colors';
-import { type HabitRow } from '@/services/habits';
 import { buildRecentDaySummary, getCompletionRate } from '@/utils/habit-stats';
 
 const { width } = Dimensions.get('window');
 const DAYS = 14;
 const CELL_SIZE = Math.floor((width - 48 - (DAYS - 1) * 6) / DAYS);
 
-export function HeatmapStrip({ habits }: { habits: HabitRow[] }) {
+type HeatmapHabit = { created_at: string; completed: boolean };
+
+export function HeatmapStrip({ habits }: { habits: HeatmapHabit[] }) {
   const cells = buildRecentDaySummary(habits, DAYS);
   const completedCount = cells.filter((cell) => cell.completed === true).length;
   const trackedCount = cells.filter((cell) => cell.completed !== null).length;

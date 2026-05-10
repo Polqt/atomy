@@ -5,8 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import {
+  getNotificationsEnabled,
   registerForPushNotifications,
-  scheduleDailyHabitReminder,
   syncPushTokenWithBackend,
 } from '../services/notifications';
 import { authorizedRequest, getApiUrl } from '../services/backend';
@@ -70,10 +70,12 @@ function PushTokenSync() {
 
     (async () => {
       try {
+        const enabled = await getNotificationsEnabled();
+        if (!enabled) return;
+
         const token = await registerForPushNotifications();
         if (token) {
           await syncPushTokenWithBackend(token, session.access_token);
-          await scheduleDailyHabitReminder();
         }
       } catch (err) {
         console.warn('[notifications] push token sync failed', err);

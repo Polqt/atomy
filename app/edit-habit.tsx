@@ -24,6 +24,8 @@ export default function EditHabitScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.habits });
       queryClient.invalidateQueries({ queryKey: queryKeys.todayHabits });
+      queryClient.invalidateQueries({ queryKey: queryKeys.history });
+      queryClient.invalidateQueries({ queryKey: queryKeys.streak });
       router.back();
     },
   });
@@ -33,6 +35,8 @@ export default function EditHabitScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.habits });
       queryClient.invalidateQueries({ queryKey: queryKeys.todayHabits });
+      queryClient.invalidateQueries({ queryKey: queryKeys.history });
+      queryClient.invalidateQueries({ queryKey: queryKeys.streak });
       router.replace('/');
     },
   });

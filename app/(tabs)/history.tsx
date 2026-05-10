@@ -17,21 +17,21 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import { type HabitRow } from '../../services/habits';
+import { type HabitHistoryRow } from '../../services/habits';
 import TabScreen from '@/components/TabScreen';
 import { HeatmapStrip } from '@/components/HeatMap';
-import { useHabits } from '../../hooks/useHabits';
+import { useHabitHistory } from '../../hooks/useHabitHistory';
 import colors from '../../constants/colors';
 import { formatSectionDate, formatTime, groupByDate } from '@/utils/time';
 
-function HabitCard({ item, index }: { item: HabitRow; index: number }) {
+function HabitCard({ item, index }: { item: HabitHistoryRow; index: number }) {
   const router = useRouter();
   return (
     <Animated.View
       entering={FadeInDown.duration(380).delay(Math.min(index * 60, 300))}
     >
       <Pressable
-        onPress={() => router.push(`/habit/${item.id}`)}
+        onPress={() => router.push(`/habit/${item.habit_id}`)}
         style={[styles.card, item.completed ? styles.cardDone : styles.cardSkip]}
       >
         {/* Status icon */}
@@ -93,7 +93,7 @@ function SkeletonCard() {
 }
 
 export default function HistoryScreen() {
-  const { data: habits = [], isLoading: loading, error: queryError } = useHabits();
+  const { data: habits = [], isLoading: loading, error: queryError } = useHabitHistory();
   const error = (queryError as Error)?.message ?? '';
 
   const sections = groupByDate(habits);

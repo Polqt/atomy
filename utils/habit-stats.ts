@@ -1,16 +1,24 @@
-import { type HabitRow } from '@/services/habits';
+import { type HabitCheckin } from '@/services/habits';
 
-type HabitCompletionEntry = Pick<HabitRow, 'created_at' | 'completed'>;
+type HabitCompletionEntry = Pick<HabitCheckin, 'created_at' | 'completed'>;
 
 export type DayCompletionSummary = {
   dateKey: string;
   completed: boolean | null;
+  completedCount?: number;
 };
 
 function dayStart(value: Date) {
   const next = new Date(value);
   next.setHours(0, 0, 0, 0);
   return next;
+}
+
+function getDateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function getCompletionRate(completed: number, total: number) {
@@ -27,7 +35,7 @@ export function getCompletionStats(habits: Array<{ completed: boolean }>) {
 export function buildDayMap(habits: HabitCompletionEntry[]) {
   const byDate = new Map<string, boolean>();
   for (const habit of habits) {
-    const dateKey = habit.created_at.slice(0, 10);
+    const dateKey = getDateKey(new Date(habit.created_at));
     if (!byDate.has(dateKey)) byDate.set(dateKey, habit.completed);
     else if (habit.completed) byDate.set(dateKey, true);
   }
@@ -41,10 +49,42 @@ export function buildRecentDaySummary(habits: HabitCompletionEntry[], days: numb
   for (let offset = days - 1; offset >= 0; offset--) {
     const d = dayStart(new Date());
     d.setDate(d.getDate() - offset);
-    const dateKey = d.toISOString().slice(0, 10);
+    const dateKey = getDateKey(d);
     summary.push({
       dateKey,
       completed: byDate.has(dateKey) ? byDate.get(dateKey)! : null,
+    });
+  }
+
+  return summary;
+}
+
+export function buildCurrentWeekSummary(habits: HabitCompletionEntry[]) {
+  const byDate = new Map<string, { completedCount: number; total: number }>();
+
+  for (const habit of habits) {
+    const dateKey = getDateKey(new Date(habit.created_at));
+    if (!byDate.has(dateKey)) byDate.set(dateKey, { completedCount: 0, total: 0 });
+    const stat = byDate.get(dateKey)!;
+    stat.total += 1;
+    if (habit.completed) stat.completedCount += 1;
+  }
+
+  const today = dayStart(new Date());
+  const start = dayStart(today);
+  start.setDate(today.getDate() - today.getDay());
+  const summary: DayCompletionSummary[] = [];
+
+  for (let offset = 0; offset < 7; offset++) {
+    const d = dayStart(start);
+    d.setDate(start.getDate() + offset);
+    const dateKey = getDateKey(d);
+    const stat = byDate.get(dateKey);
+
+    summary.push({
+      dateKey,
+      completed: stat ? stat.completedCount > 0 : null,
+      completedCount: stat?.completedCount ?? 0,
     });
   }
 
@@ -88,7 +128,7 @@ export function computeCurrentStreak(habits: HabitCompletionEntry[]) {
   let streak = 0;
 
   while (true) {
-    const key = cursor.toISOString().slice(0, 10);
+    const key = getDateKey(cursor);
     if (!byDate.has(key)) break;
     if (byDate.get(key) !== true) break;
     streak += 1;
@@ -97,4 +137,3 @@ export function computeCurrentStreak(habits: HabitCompletionEntry[]) {
 
   return streak;
 }
-

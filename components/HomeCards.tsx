@@ -108,7 +108,7 @@ export function HabitListItem({
       </Pressable>
 
       <Pressable
-        onPress={habit.completed ? undefined : onDone}
+        onPress={onDone}
         disabled={acting}
         style={[
           styles.checkBtn,
@@ -225,13 +225,13 @@ const styles = StyleSheet.create({
   // Big habit card (single-habit detail view)
   habitCard: {
     backgroundColor: colors.surface,
-    borderRadius: 24,
+    borderRadius: 16,
     padding: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 24,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
     overflow: 'hidden',
     position: 'relative',
   },
@@ -242,8 +242,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 4,
     backgroundColor: colors.primary,
-    borderTopLeftRadius: 24,
-    borderBottomLeftRadius: 24,
+    borderTopLeftRadius: 16,
+    borderBottomLeftRadius: 16,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -338,46 +338,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 10,
+    borderRadius: 20,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
     overflow: 'hidden',
   },
   listItemContent: {
     flex: 1,
-    paddingVertical: 14,
-    paddingLeft: 16,
+    paddingVertical: 20,
+    paddingLeft: 20,
     paddingRight: 8,
   },
   listItemBody: {
     gap: 3,
   },
   listItemHabit: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.text,
-    lineHeight: 21,
+    lineHeight: 22,
   },
   listItemGoal: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '400',
     color: colors.muted,
-    lineHeight: 17,
+    lineHeight: 18,
   },
   checkBtn: {
-    width: 44,
-    height: 44,
-    margin: 10,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    margin: 14,
+    borderRadius: 26,
     borderWidth: 1.5,
     borderColor: colors.border,
-    backgroundColor: colors.soft,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -388,7 +386,7 @@ const styles = StyleSheet.create({
   checkIcon: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.muted,
+    color: '#D1D5DB',
   },
   checkIconDone: {
     color: colors.surface,
@@ -397,14 +395,14 @@ const styles = StyleSheet.create({
   // Done / state card
   stateCard: {
     backgroundColor: colors.surface,
-    borderRadius: 24,
+    borderRadius: 16,
     padding: 28,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 24,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
   stateIconWrap: {
     width: 56,
@@ -463,10 +461,18 @@ const styles = StyleSheet.create({
   // Empty card
   emptyCard: {
     width: '100%',
+    backgroundColor: colors.surface,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   emptyCenter: {
-    marginTop: 120,
     alignItems: 'center',
+    paddingTop: 42,
   },
   emptyIconCircle: {
     width: 80,
@@ -497,7 +503,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   generateBtn: {
-    marginTop: 48,
+    marginTop: 40,
     backgroundColor: colors.primary,
     borderRadius: 50,
     paddingVertical: 16,
@@ -506,8 +512,8 @@ const styles = StyleSheet.create({
     width: '100%',
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
     elevation: 6,
   },
   generateBtnText: {
@@ -523,13 +529,13 @@ const styles = StyleSheet.create({
   },
   skeletonCard: {
     backgroundColor: colors.surface,
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 16,
-    elevation: 3,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   skeletonLine: {
     height: 14,

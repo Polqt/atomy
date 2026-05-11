@@ -1,11 +1,10 @@
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import colors from '@/constants/colors';
 import { buildRecentDaySummary, getCompletionRate } from '@/utils/habit-stats';
 
-const { width } = Dimensions.get('window');
 const DAYS = 14;
-const CELL_SIZE = Math.floor((width - 48 - (DAYS - 1) * 6) / DAYS);
+const DOT_SIZE = 13;
 
 type HeatmapHabit = { created_at: string; completed: boolean };
 
@@ -20,9 +19,7 @@ export function HeatmapStrip({ habits }: { habits: HeatmapHabit[] }) {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>14-day activity</Text>
-          <Text style={styles.sub}>
-            {completedCount} of {trackedCount} days completed
-          </Text>
+          <Text style={styles.sub}>{completedCount} of {trackedCount} days completed</Text>
         </View>
         <View style={styles.ratePill}>
           <Text style={styles.rateText}>{rate}%</Text>
@@ -45,8 +42,8 @@ export function HeatmapStrip({ habits }: { habits: HeatmapHabit[] }) {
 
       <View style={styles.legend}>
         <LegendItem color={colors.primary} label="Done" />
-        <LegendItem color={SKIP_TEXT} label="Skipped" />
-        <LegendItem color={colors.border} label="No habit" />
+        <LegendItem color={colors.skipText} label="Skipped" />
+        <LegendItem color="#E5E7EB" label="No habit" />
       </View>
     </Animated.View>
   );
@@ -61,19 +58,17 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
-const SKIP_TEXT = '#EF4444';
-
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
     padding: 18,
-    marginBottom: 28,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -85,7 +80,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.text,
     letterSpacing: 0.1,
     marginBottom: 2,
@@ -107,25 +102,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.primary,
+    fontVariant: ['tabular-nums'],
   },
   cells: {
     flexDirection: 'row',
-    gap: 6,
+    justifyContent: 'space-between',
     marginBottom: 12,
+    width: '100%',
   },
   cell: {
-    width: CELL_SIZE,
-    height: CELL_SIZE,
-    borderRadius: 4,
+    width: DOT_SIZE,
+    height: DOT_SIZE,
+    borderRadius: DOT_SIZE / 2,
   },
   cellDone: {
     backgroundColor: colors.primary,
   },
   cellSkipped: {
-    backgroundColor: '#FCA5A5',
+    backgroundColor: colors.skipText,
   },
   cellEmpty: {
-    backgroundColor: colors.border,
+    backgroundColor: '#E5E7EB',
   },
   legend: {
     flexDirection: 'row',
@@ -139,7 +136,7 @@ const styles = StyleSheet.create({
   legendDot: {
     width: 8,
     height: 8,
-    borderRadius: 2,
+    borderRadius: 4,
   },
   legendLabel: {
     fontSize: 10,
@@ -148,4 +145,3 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 });
-

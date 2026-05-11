@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: {
     paddingTop: 64,
-    paddingBottom: 48,
+    paddingBottom: 24,
     paddingHorizontal: 24,
   },
   heading: {
@@ -217,10 +217,15 @@ const styles = StyleSheet.create({
   card: {
     marginTop: 24,
     backgroundColor: colors.surface,
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 20,
     borderWidth: 1,
     borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
   habitText: {
     color: colors.text,

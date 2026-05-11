@@ -1,8 +1,12 @@
+/**
+ * Notifications Service
+ * Handles push notifications and token management
+ */
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+import { authorizedRequest, getApiUrl } from './backend';
+import { NOTIFICATIONS } from '../constants/api';
 
 const PUSH_TOKEN_KEY = 'expo_push_token';
 const NOTIFICATIONS_ENABLED_KEY = 'notifications_enabled';
@@ -80,20 +84,14 @@ export async function syncPushTokenWithBackend(
   token: string,
   accessToken: string,
 ): Promise<void> {
-  if (!API_URL) return;
+  if (!getApiUrl()) return;
 
   try {
-    const response = await fetch(`${API_URL}/api/notifications/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ token }),
-    });
-    if (!response.ok) {
-      throw new Error(`register failed: ${response.status}`);
-    }
+    await authorizedRequest(
+      '/api/notifications/register',
+      { method: 'POST', body: JSON.stringify({ token }) },
+      accessToken,
+    );
   } catch (err) {
     console.warn('[notifications] Failed to sync push token with backend', err);
   }
@@ -102,18 +100,10 @@ export async function syncPushTokenWithBackend(
 export async function disablePushNotificationsOnBackend(
   accessToken: string,
 ): Promise<void> {
-  if (!API_URL) return;
+  if (!getApiUrl()) return;
 
   try {
-    const response = await fetch(`${API_URL}/api/notifications/disable`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-    if (!response.ok) {
-      throw new Error(`disable failed: ${response.status}`);
-    }
+    await authorizedRequest('/api/notifications/disable', { method: 'POST' }, accessToken);
   } catch (err) {
     console.warn('[notifications] Failed to disable push notifications on backend', err);
   }
@@ -136,12 +126,12 @@ export async function scheduleDailyHabitReminder(): Promise<void> {
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour: 9,
-      minute: 0,
+      hour: NOTIFICATIONS.DEFAULT_HOUR,
+      minute: NOTIFICATIONS.DEFAULT_MINUTE,
     },
   });
 
-  console.log('[notifications] Daily reminder scheduled for 9:00 AM');
+  console.log(`[notifications] Daily reminder scheduled for ${NOTIFICATIONS.DEFAULT_HOUR}:${NOTIFICATIONS.DEFAULT_MINUTE.toString().padStart(2, '0')}`);
 }
 
 export async function cancelDailyHabitReminder(): Promise<void> {

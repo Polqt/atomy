@@ -1,30 +1,41 @@
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-  StatusBar,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useCreateHabit } from '../hooks/useCreateHabit';
 import colors from '../constants/colors';
+
+const MAX_HABIT_CHARS = 50;
 
 export default function AddHabitScreen() {
   const router = useRouter();
   const { mutate: create, isPending: saving } = useCreateHabit();
+  const habitInputRef = useRef<TextInput>(null);
 
   const [habit, setHabit] = useState('');
   const [goal, setGoal] = useState('');
   const [error, setError] = useState('');
+  const [focusedField, setFocusedField] = useState<'habit' | 'goal' | null>(null);
 
-  const canSubmit = habit.trim().length > 0 && goal.trim().length > 0;
+  const canSubmit = habit.trim().length > 0;
+  const closeSheet = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/');
+  };
 
   const handleCreate = () => {
     if (!canSubmit || saving) return;
@@ -41,80 +52,98 @@ export default function AddHabitScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      <View style={styles.backdrop}>
+        <Animated.View
+          entering={SlideInDown.duration(280)}
+          style={styles.sheet}
+          onLayout={() => {
+            requestAnimationFrame(() => habitInputRef.current?.focus());
+          }}
+        >
+          <View style={styles.handle} />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Header */}
-        <Animated.View entering={FadeIn.duration(300)} style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>← Back</Text>
-          </Pressable>
-          <Text style={styles.headerTitle}>New Habit</Text>
-          <View style={styles.headerRight} />
-        </Animated.View>
-
-        {/* Form */}
-        <Animated.View entering={FadeInDown.duration(420).delay(60)} style={styles.form}>
-
-          {/* Habit field */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Habit</Text>
-            <TextInput
-              style={styles.input}
-              value={habit}
-              onChangeText={setHabit}
-              placeholder="e.g. Drink water after waking up"
-              placeholderTextColor={colors.muted}
-              returnKeyType="next"
-            />
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Add habit</Text>
+            <Pressable onPress={closeSheet} style={styles.closeButton} hitSlop={8}>
+              <Text style={styles.closeText}>×</Text>
+            </Pressable>
           </View>
 
-          {/* Why it matters */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Why is this important?</Text>
-            <TextInput
-              style={[styles.input, styles.inputMultiline]}
-              value={goal}
-              onChangeText={setGoal}
-              placeholder="e.g. I want to stay hydrated and feel energized"
-              placeholderTextColor={colors.muted}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* Error */}
-          {error ? (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
-
-        </Animated.View>
-
-        {/* CTA */}
-        <Animated.View entering={FadeInDown.duration(420).delay(160)}>
-          <Pressable
-            onPress={handleCreate}
-            style={[styles.createBtn, (!canSubmit || saving) && styles.createBtnDisabled]}
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            {saving ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.createBtnText}>Create Habit</Text>
-            )}
-          </Pressable>
-        </Animated.View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Habit name</Text>
+              <TextInput
+                ref={habitInputRef}
+                style={[styles.input, focusedField === 'habit' && styles.inputFocused]}
+                value={habit}
+                onChangeText={(value) => {
+                  setHabit(value);
+                  setError('');
+                }}
+                placeholder="Drink water after waking up"
+                placeholderTextColor={colors.muted}
+                returnKeyType="next"
+                maxLength={MAX_HABIT_CHARS}
+                onFocus={() => setFocusedField('habit')}
+                onBlur={() => setFocusedField(null)}
+              />
+              <Text style={styles.charCount}>
+                {habit.length} / {MAX_HABIT_CHARS}
+              </Text>
+            </View>
 
-      </ScrollView>
+            <View style={styles.field}>
+              <Text style={styles.label}>Description</Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  styles.inputMultiline,
+                  focusedField === 'goal' && styles.inputFocused,
+                ]}
+                value={goal}
+                onChangeText={(value) => {
+                  setGoal(value);
+                  setError('');
+                }}
+                placeholder="Good blood flow"
+                placeholderTextColor={colors.muted}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+                onFocus={() => setFocusedField('goal')}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+
+            {error ? (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
+          </ScrollView>
+
+          <View style={styles.footer}>
+            <Pressable
+              onPress={handleCreate}
+              style={[styles.createBtn, (!canSubmit || saving) && styles.createBtnDisabled]}
+            >
+              {saving ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.createBtnText}>Create Habit</Text>
+              )}
+            </Pressable>
+          </View>
+        </Animated.View>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -122,64 +151,79 @@ export default function AddHabitScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.background,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.18)',
   },
-  scroll: { flex: 1 },
-  content: {
-    paddingTop: 60,
-    paddingBottom: 48,
-    paddingHorizontal: 24,
+  backdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
   },
-
-  // Header
+  sheet: {
+    maxHeight: '88%',
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  handle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: colors.border,
+    marginBottom: 10,
+  },
   header: {
+    minHeight: 52,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 32,
-  },
-  backBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: colors.surface,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  backBtnText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.muted,
   },
   headerTitle: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text,
-    letterSpacing: -0.3,
+    letterSpacing: -0.5,
   },
-  headerRight: {
-    width: 70,
+  closeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5EDE0',
   },
-
-  // Form
-  form: {
-    gap: 20,
-    marginBottom: 28,
+  closeText: {
+    fontSize: 28,
+    lineHeight: 30,
+    color: colors.text,
+    fontWeight: '300',
+  },
+  scroll: {
+    flexGrow: 0,
+  },
+  content: {
+    padding: 20,
+    gap: 18,
   },
   field: {
     gap: 8,
   },
   label: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: colors.muted,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
   },
   input: {
     backgroundColor: colors.surface,
     borderRadius: 14,
-    paddingVertical: 14,
+    paddingVertical: 15,
     paddingHorizontal: 16,
     fontSize: 15,
     fontWeight: '400',
@@ -187,39 +231,48 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  inputMultiline: {
-    minHeight: 90,
-    paddingTop: 14,
+  inputFocused: {
+    borderColor: colors.primary,
   },
-
-  // Error
+  inputMultiline: {
+    minHeight: 92,
+    paddingTop: 15,
+  },
+  charCount: {
+    alignSelf: 'flex-end',
+    fontSize: 12,
+    color: colors.muted,
+  },
   errorBanner: {
     backgroundColor: colors.dangerBg,
     borderRadius: 12,
     padding: 12,
-    borderWidth: 1,
-    borderColor: colors.dangerBorder,
   },
   errorText: {
     fontSize: 13,
     color: colors.danger,
   },
-
-  // CTA
+  footer: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 24,
+    backgroundColor: colors.surface,
+  },
   createBtn: {
+    width: '100%',
+    height: 56,
     backgroundColor: colors.primary,
-    borderRadius: 50,
-    paddingVertical: 17,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 5,
   },
   createBtnDisabled: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   createBtnText: {
     fontSize: 15,

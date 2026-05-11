@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { markHabit, type TodayHabit, type HabitHistoryRow } from '../services/habits';
+import { markHabit, type TodayHabit, type HabitCheckin } from '../services/habits';
 import { queryKeys } from './queryKeys';
 
 export function useMarkHabit() {
@@ -16,7 +16,7 @@ export function useMarkHabit() {
 
       // Snapshot previous values for rollback
       const prevToday = queryClient.getQueryData<TodayHabit[]>(queryKeys.todayHabits);
-      const prevHistory = queryClient.getQueryData<HabitHistoryRow[]>(queryKeys.history);
+      const prevHistory = queryClient.getQueryData<HabitCheckin[]>(queryKeys.history);
 
       // Optimistically update today's habits
       queryClient.setQueryData<TodayHabit[]>(
@@ -26,7 +26,7 @@ export function useMarkHabit() {
 
       // Optimistically update history if it exists
       if (prevHistory) {
-        queryClient.setQueryData<HabitHistoryRow[]>(
+        queryClient.setQueryData<HabitCheckin[]>(
           queryKeys.history,
           (old) =>
             old?.map((h) =>

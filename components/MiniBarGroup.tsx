@@ -3,18 +3,27 @@ import colors from '@/constants/colors';
 import { type DayCompletionSummary } from '@/utils/habit-stats';
 
 export default function MiniBarGroup({ week }: { week: DayCompletionSummary[] }) {
+  const maxCompleted = Math.max(...week.map((day) => day.completedCount ?? (day.completed ? 1 : 0)), 0);
+
   return (
     <View style={styles.row}>
-      {week.map((day) => (
-        <View
-          key={day.dateKey}
-          style={[
-            styles.bar,
-            day.completed === true ? styles.barDone : null,
-            day.completed === false ? styles.barSkipped : null,
-          ]}
-        />
-      ))}
+      {week.map((day) => {
+        const completedCount = day.completedCount ?? (day.completed ? 1 : 0);
+        const height = maxCompleted > 0 ? 8 + Math.round((completedCount / maxCompleted) * 22) : 8;
+
+        return (
+          <View
+            key={day.dateKey}
+            style={[
+              styles.bar,
+              {
+                height,
+                backgroundColor: completedCount > 0 ? colors.primary : '#E5E7EB',
+              },
+            ]}
+          />
+        );
+      })}
     </View>
   );
 }
@@ -28,17 +37,8 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: 5,
-    height: 16,
     borderRadius: 3,
     backgroundColor: '#E5E7EB',
-  },
-  barDone: {
-    height: 26,
-    backgroundColor: colors.primary,
-  },
-  barSkipped: {
-    height: 12,
-    backgroundColor: '#FCA5A5',
   },
 });
 

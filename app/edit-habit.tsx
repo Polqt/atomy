@@ -14,6 +14,20 @@ export default function EditHabitScreen() {
   const queryClient = useQueryClient();
   const { data: habits = [] } = useHabits();
 
+  // Guard against missing or invalid ID
+  if (!id) {
+    return (
+      <View style={styles.root}>
+        <View style={styles.notFound}>
+          <Text style={styles.notFoundText}>Invalid habit ID.</Text>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>← Go back</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   const habit = habits.find((h) => h.id === id);
 
   const [habitText, setHabitText] = useState(habit?.habit ?? '');

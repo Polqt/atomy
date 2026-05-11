@@ -15,6 +15,21 @@ export default function HabitDetailScreen() {
   const [localStatus, setLocalStatus] = useState<'done' | 'skipped' | null>(null);
   const [error, setError] = useState('');
 
+  // Guard against missing or invalid ID
+  if (!id) {
+    return (
+      <View style={styles.root}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <View style={styles.notFound}>
+          <Text style={styles.notFoundText}>Invalid habit ID.</Text>
+          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>← Go back</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   const habit = habits.find((h) => h.id === id);
 
   if (!habit) {

@@ -80,18 +80,21 @@ function PushTokenSync() {
 function OnboardingGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { loading: authLoading } = useAuth();
   const [ready, setReady] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   useEffect(() => {
+    // Only check onboarding after auth has started loading
+    // This prevents redirect race conditions
     AsyncStorage.getItem('onboarding_complete').then((value) => {
       setNeedsOnboarding(!value);
       setReady(true);
     });
   }, []);
 
-  // Show nothing while checking
-  if (!ready) return null;
+  // Show nothing while checking or auth is loading
+  if (!ready || authLoading) return null;
 
   // Allow onboarding route to work if needed
   if (needsOnboarding && pathname !== '/onboarding') {

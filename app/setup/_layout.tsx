@@ -4,11 +4,10 @@ import { useAuth } from '../../context/AuthContext';
 import colors from '../../constants/colors';
 import { hasProfileName } from '../../utils/auth-routing';
 
-export default function AuthLayout() {
+export default function SetupLayout() {
   const { user, loading } = useAuth();
   const pathname = usePathname();
 
-  // Show loading spinner while checking auth state
   if (loading) {
     return (
       <View style={styles.loading}>
@@ -17,17 +16,18 @@ export default function AuthLayout() {
     );
   }
 
-  if (user) {
-    if (pathname === '/reset-password') {
-      return <Stack screenOptions={{ headerShown: false }} />;
+  if (!user) return <Redirect href="/(auth)/login" />;
+  if (!hasProfileName(user)) {
+    if (pathname === '/setup/name') {
+      return <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />;
     }
-    if (!hasProfileName(user)) {
-      return <Redirect href="/setup/name" />;
-    }
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href="/setup/name" />;
   }
-
-  return <Stack screenOptions={{ headerShown: false }} />;
+  if (pathname === '/setup/name') return <Redirect href="/setup/photo" />;
+  if (pathname === '/setup/photo' || pathname === '/setup/done') {
+    return <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }} />;
+  }
+  return <Redirect href="/(tabs)" />;
 }
 
 const styles = StyleSheet.create({

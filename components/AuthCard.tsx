@@ -24,11 +24,11 @@ import Animated, {
 
 const { width, height } = Dimensions.get('window');
 
-const GREEN = '#22C55E';
+const GREEN = '#34C759';
 const GREEN_PALE = '#F0FDF4';
 const GREEN_LIGHT = '#DCFCE7';
-const INK = '#0A0A0A';
-const MUTED = '#9CA3AF';
+const INK = '#1C1C1E';
+const MUTED = '#8E8E93';
 const SOFT = '#F5F5F3';
 const BORDER = '#E5E7EB';
 const ERROR_BG = '#FEF2F2';
@@ -70,23 +70,26 @@ type FieldProps = TextInputProps & {
   label: string;
   delay?: number;
   error?: string;
+  rightElement?: React.ReactNode;
 };
 
-export function AuthField({ label, delay = 0, error, style, ...props }: FieldProps) {
+export function AuthField({ label, delay = 0, error, style, rightElement, onFocus, onBlur, ...props }: FieldProps) {
   const [focused, setFocused] = useState(false);
   const underlineWidth = useSharedValue(0);
   const labelScale = useSharedValue(1);
 
-  const handleFocus = () => {
+  const handleFocus: NonNullable<TextInputProps['onFocus']> = (event) => {
     setFocused(true);
     underlineWidth.value = withTiming(1, { duration: 340, easing: Easing.out(Easing.cubic) });
     labelScale.value = withSpring(0.88, { damping: 18, stiffness: 240 });
+    onFocus?.(event);
   };
 
-  const handleBlur = () => {
+  const handleBlur: NonNullable<TextInputProps['onBlur']> = (event) => {
     setFocused(false);
     underlineWidth.value = withTiming(0, { duration: 260, easing: Easing.in(Easing.cubic) });
     labelScale.value = withSpring(1, { damping: 18, stiffness: 240 });
+    onBlur?.(event);
   };
 
   const underlineStyle = useAnimatedStyle(() => ({
@@ -103,13 +106,16 @@ export function AuthField({ label, delay = 0, error, style, ...props }: FieldPro
         {label}
       </Animated.Text>
       <View style={[styles.inputWrap, focused && styles.inputWrapFocused, error && styles.inputWrapError]}>
-        <TextInput
-          style={[styles.input, style]}
-          placeholderTextColor={MUTED}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          {...props}
-        />
+        <View style={styles.inputRow}>
+          <TextInput
+            style={[styles.input, rightElement ? styles.inputWithRight : null, style]}
+            placeholderTextColor={MUTED}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            {...props}
+          />
+          {rightElement ? <View style={styles.rightElement}>{rightElement}</View> : null}
+        </View>
         <View style={styles.underlineTrack}>
           <Animated.View style={[styles.underlineBar, error && styles.underlineBarError, underlineStyle]} />
         </View>
@@ -172,37 +178,6 @@ export function AuthError({ message }: { message: string }) {
   );
 }
 
-// "or continue with" divider
-export function AuthDivider() {
-  return (
-    <View style={styles.dividerRow}>
-      <View style={styles.dividerLine} />
-      <Text style={styles.dividerText}>or continue with</Text>
-      <View style={styles.dividerLine} />
-    </View>
-  );
-}
-
-// OAuth provider button
-export function AuthOAuthButton({ label, icon, onPress }: { label: string; icon: string; onPress: () => void }) {
-  const scale = useSharedValue(1);
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
-  return (
-    <Animated.View style={animStyle}>
-      <Pressable
-        onPress={onPress}
-        onPressIn={() => { scale.value = withSpring(0.97, { damping: 18, stiffness: 300 }); }}
-        onPressOut={() => { scale.value = withSpring(1, { damping: 14, stiffness: 220 }); }}
-        style={styles.oauthBtn}
-      >
-        <Text style={styles.oauthIcon}>{icon}</Text>
-        <Text style={styles.oauthLabel}>{label}</Text>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
 // The card shell shared by login + signup
 type CardProps = {
   children: React.ReactNode;
@@ -228,7 +203,7 @@ export function AuthCardShell({ children }: CardProps) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FAFAF8',
+    backgroundColor: '#F7F6F2',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -260,17 +235,15 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 380,
     backgroundColor: 'rgba(255,255,255,0.88)',
-    borderRadius: 28,
+    borderRadius: 24,
     paddingHorizontal: 28,
     paddingTop: 28,
     paddingBottom: 32,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.07,
-    shadowRadius: 40,
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
   },
 
   brandRow: {
@@ -321,12 +294,25 @@ const styles = StyleSheet.create({
     backgroundColor: GREEN_PALE,
   },
   input: {
+    flex: 1,
     fontSize: 15,
     fontWeight: '400',
     color: INK,
     paddingHorizontal: 16,
     paddingVertical: 14,
     letterSpacing: 0.2,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inputWithRight: {
+    paddingRight: 8,
+  },
+  rightElement: {
+    paddingRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   underlineTrack: {
     height: 2,
@@ -410,49 +396,6 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: ERROR_TEXT,
     lineHeight: 19,
-  },
-
-  // Divider
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginVertical: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: BORDER,
-  },
-  dividerText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: MUTED,
-    letterSpacing: 0.3,
-  },
-
-  // OAuth button
-  oauthBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 50,
-    paddingVertical: 14,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    marginBottom: 10,
-  },
-  oauthIcon: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  oauthLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: INK,
-    letterSpacing: 0.1,
   },
 
   // Legal

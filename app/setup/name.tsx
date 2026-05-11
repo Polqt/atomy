@@ -1,49 +1,75 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
+  ActivityIndicator,
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useNavigation, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../config/supabase';
 import colors from '../../constants/colors';
 
 export default function SetupNameScreen() {
   const router = useRouter();
-  const { updateProfile, signOut } = useAuth();
+  const navigation = useNavigation();
+  const allowNextRoute = useRef(false);
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const trimmed = name.trim();
-  const canContinue = trimmed.length > 0 && !loading;
+  const canSave = trimmed.length > 0 && !loading;
 
-  const handleContinue = async () => {
-    if (!canContinue) return;
-    setError('');
-    setLoading(true);
+  const signOutToLogin = async () => {
     try {
-      await updateProfile(trimmed);
-      router.push('/setup/photo');
-    } catch (e: any) {
-      setError(e.message ?? 'Something went wrong.');
+      await supabase.auth.signOut();
     } finally {
-      setLoading(false);
+      allowNextRoute.current = true;
+      router.replace('/(auth)/login');
     }
   };
 
-  const handleBack = async () => {
+  useEffect(() => {
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      signOutToLogin();
+      return true;
+    });
+
+    return () => backSubscription.remove();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+      if (allowNextRoute.current) return;
+      event.preventDefault();
+      signOutToLogin();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  const saveName = async () => {
+    if (!canSave) return;
+    setError('');
+    setLoading(true);
+
     try {
-      await signOut();
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { name: trimmed },
+      });
+      if (updateError) throw updateError;
+      allowNextRoute.current = true;
+      router.push('/setup/photo');
+    } catch (err: any) {
+      setError(err?.message ?? 'Could not save your name. Please try again.');
     } finally {
-      router.replace('/(auth)/login');
+      setLoading(false);
     }
   };
 
@@ -53,50 +79,51 @@ export default function SetupNameScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar style="dark" />
-
       <View style={styles.inner}>
-        <Pressable style={styles.backButton} onPress={handleBack}>
+        <Pressable style={styles.backButton} onPress={signOutToLogin}>
           <Text style={styles.backIcon}>{'<'}</Text>
           <Text style={styles.backText}>Back</Text>
         </Pressable>
 
-        <Animated.Text entering={FadeInDown.duration(400).delay(0)} style={styles.wordmark}>
-          atomy
-        </Animated.Text>
+        <Text style={styles.wordmark}>atomy</Text>
 
-        <Animated.View entering={FadeInDown.duration(440).delay(80)} style={styles.headingBlock}>
+        <View style={styles.headingBlock}>
           <Text style={styles.heading}>What should{'\n'}we call you?</Text>
           <Text style={styles.sub}>You can always change this later.</Text>
-        </Animated.View>
+        </View>
 
-        <Animated.View entering={FadeInDown.duration(440).delay(160)} style={styles.inputBlock}>
+        <View style={styles.inputBlock}>
+          <Text style={styles.label}>Display name</Text>
           <TextInput
             style={styles.input}
             value={name}
-            onChangeText={(v) => { setName(v); setError(''); }}
+            onChangeText={(value) => {
+              setName(value);
+              setError('');
+            }}
             placeholder="Your name"
             placeholderTextColor={colors.muted}
             autoCapitalize="words"
             autoFocus
             returnKeyType="done"
-            onSubmitEditing={handleContinue}
+            onSubmitEditing={saveName}
           />
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
-        </Animated.View>
+        </View>
 
-        <Animated.View entering={FadeInDown.duration(440).delay(220)} style={styles.footer}>
+        <View style={styles.footer}>
           <Pressable
-            style={[styles.button, !canContinue && styles.buttonDisabled]}
-            onPress={handleContinue}
-            disabled={!canContinue}
+            style={[styles.button, !canSave && styles.buttonDisabled]}
+            onPress={saveName}
+            disabled={!canSave}
           >
             {loading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.buttonText}>Continue →</Text>
+              <Text style={styles.buttonText}>Save</Text>
             )}
           </Pressable>
-        </Animated.View>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -161,7 +188,15 @@ const styles = StyleSheet.create({
   inputBlock: {
     gap: 8,
   },
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
   input: {
+    width: '100%',
     backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: colors.border,

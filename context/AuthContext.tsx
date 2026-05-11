@@ -1,7 +1,10 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import * as Linking from 'expo-linking';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../config/supabase';
 import { authorizedRequest, getApiUrl } from '../services/backend';
+import { ONBOARDING_KEY, resolveAuthRoute } from '../utils/auth-routing';
 
 type AuthContextType = {
   user: User | null;
@@ -9,6 +12,7 @@ type AuthContextType = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (name: string, avatarUrl?: string) => Promise<void>;
 };
@@ -21,15 +25,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const initializeAuth = async () => {
+      await AsyncStorage.getItem(ONBOARDING_KEY);
+      const { data: { session } } = await supabase.auth.getSession();
+      resolveAuthRoute(session, session?.user ?? null);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-    });
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    initializeAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      AsyncStorage.getItem(ONBOARDING_KEY).then(() => {
+        if (event !== 'PASSWORD_RECOVERY' && event !== 'USER_UPDATED') {
+          resolveAuthRoute(session, session?.user ?? null);
+        }
+      });
       setSession(session);
       setUser(session?.user ?? null);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
@@ -41,7 +56,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        // Test confirmation links in a development build or standalone app. Expo Go does not reliably own custom app schemes.
+        emailRedirectTo: Linking.createURL('/setup/name'),
+      },
+    });
+    if (error) throw error;
+  };
+
+  const resetPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: Linking.createURL('/reset-password'),
+    });
     if (error) throw error;
   };
 
@@ -81,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, updateProfile }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, resetPassword, signOut, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

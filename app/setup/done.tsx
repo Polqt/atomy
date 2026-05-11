@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { BackHandler, View, Text, Pressable, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import Animated, {
   FadeInDown,
@@ -18,6 +19,7 @@ export default function SetupDoneScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const name = (user?.user_metadata?.name as string) ?? 'there';
+  const completed = useRef(false);
 
   const scale = useSharedValue(0);
   const checkOpacity = useSharedValue(0);
@@ -36,6 +38,25 @@ export default function SetupDoneScreen() {
   const checkStyle = useAnimatedStyle(() => ({
     opacity: checkOpacity.value,
   }));
+
+  const finishSetup = async () => {
+    if (completed.current) return;
+    completed.current = true;
+    await AsyncStorage.setItem('onboarding_complete', 'true');
+    router.replace('/(tabs)');
+  };
+
+  useEffect(() => {
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', () => true);
+    const timeout = setTimeout(() => {
+      finishSetup();
+    }, 1500);
+
+    return () => {
+      clearTimeout(timeout);
+      backSubscription.remove();
+    };
+  }, []);
 
   return (
     <View style={styles.root}>
@@ -63,7 +84,7 @@ export default function SetupDoneScreen() {
         <Animated.View entering={FadeInDown.duration(440).delay(700)} style={styles.footer}>
           <Pressable
             style={styles.button}
-            onPress={() => router.replace('/(tabs)')}
+            onPress={finishSetup}
           >
             <Text style={styles.buttonText}>Let's go →</Text>
           </Pressable>
@@ -82,7 +103,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 32,
     paddingTop: 64,
-    paddingBottom: 48,
+    paddingBottom: 24,
   },
   wordmark: {
     fontSize: 12,

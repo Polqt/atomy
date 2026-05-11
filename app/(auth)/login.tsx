@@ -1,33 +1,45 @@
-import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
-import { Link } from 'expo-router';
+import { useState, useEffect } from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useAuth } from '../../context/AuthContext';
-import { AuthCardShell, AuthField, AuthButton } from '../../components/AuthCard';
+import { AuthCardShell, AuthField, AuthButton, AuthError } from '../../components/AuthCard';
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
 
 export default function LoginScreen() {
-  const { signIn } = useAuth();
+  const { signIn, user } = useAuth();
+  const router = useRouter();
+  const params = useLocalSearchParams<{ error?: string; success?: string }>();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [authError, setAuthError] = useState('');
+  const [authSuccess, setAuthSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const validate = () => {
     let valid = true;
     setEmailError('');
     setPasswordError('');
-    setAuthError('');
 
     if (!email.trim()) {
       setEmailError('Please enter your email.');
       valid = false;
+    } else if (!isValidEmail(email)) {
+      setEmailError('Enter a valid email address.');
+      valid = false;
     }
+
     if (!password) {
       setPasswordError('Please enter your password.');
       valid = false;
     }
+
     return valid;
   };
 
@@ -38,30 +50,56 @@ export default function LoginScreen() {
       await signIn(email.trim(), password);
     } catch (e: any) {
       setAuthError(e.message ?? 'Login failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
 
-  const handleOAuth = () => {
-    Alert.alert('Coming soon', 'OAuth will be available in a future update.');
+  const clearErrors = () => {
+    setAuthError('');
+    setAuthSuccess('');
   };
+
+  const canSubmit = email.trim().length > 0 && password.length > 0 && !loading;
+
+  useEffect(() => {
+    if (user) {
+      router.replace('/');
+    }
+  }, [user, router]);
+
+  useEffect(() => {
+    if (params.error === 'confirmation_link_invalid') {
+      setAuthError('The confirmation link has expired or is invalid.');
+    }
+    if (params.success === 'password_updated') {
+      setAuthSuccess('Your password has been updated.');
+    }
+  }, [params.error, params.success]);
 
   return (
     <AuthCardShell>
-      {/* Heading */}
       <Animated.View entering={FadeInDown.duration(420).delay(100)} style={styles.headingBlock}>
         <Text style={styles.title}>Welcome back.</Text>
         <Text style={styles.subtitle}>Sign in to continue your habit streak.</Text>
       </Animated.View>
 
-      {/* Fields */}
+      <AuthError message={authError} />
+      {authSuccess ? (
+        <Animated.View entering={FadeIn.duration(280)} style={styles.successBanner}>
+          <Text style={styles.successText}>{authSuccess}</Text>
+        </Animated.View>
+      ) : null}
+
       <View style={styles.fields}>
         <AuthField
           label="Email"
           delay={180}
           value={email}
-          onChangeText={(v) => { setEmail(v); setEmailError(''); }}
+          onChangeText={(v) => {
+            setEmail(v);
+            setEmailError('');
+            clearErrors();
+          }}
           placeholder="you@example.com"
           autoCapitalize="none"
           keyboardType="email-address"
@@ -73,26 +111,37 @@ export default function LoginScreen() {
           label="Password"
           delay={240}
           value={password}
-          onChangeText={(v) => { setPassword(v); setPasswordError(''); setAuthError(''); }}
+          onChangeText={(v) => {
+            setPassword(v);
+            setPasswordError('');
+            clearErrors();
+          }}
           placeholder="••••••••"
-          secureTextEntry
+          secureTextEntry={!showPassword}
           autoComplete="password"
-          error={passwordError || authError}
+          error={passwordError}
+          rightElement={
+            <Pressable onPress={() => setShowPassword((value) => !value)} hitSlop={8}>
+              <Text style={styles.eyeText}>{showPassword ? 'Hide' : 'Show'}</Text>
+            </Pressable>
+          }
         />
       </View>
 
-      {/* CTA */}
+      <Pressable style={styles.forgotWrap} onPress={() => router.push('/(auth)/forgot-password')}>
+        <Text style={styles.forgotText}>Forgot password?</Text>
+      </Pressable>
+
       <View style={styles.buttonWrap}>
         <AuthButton
           label="Sign in"
           onPress={handleLogin}
           loading={loading}
-          disabled={loading}
+          disabled={!canSubmit}
           delay={300}
         />
       </View>
 
-      {/* Switch */}
       <Animated.View entering={FadeIn.duration(380).delay(460)} style={styles.switchRow}>
         <Text style={styles.switchText}>No account yet?</Text>
         <Link href="/(auth)/signup" asChild>
@@ -126,6 +175,36 @@ const styles = StyleSheet.create({
   },
   fields: {
     gap: 4,
+  },
+  successBanner: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  successText: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#15803D',
+    lineHeight: 19,
+  },
+  eyeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#22C55E',
+  },
+  forgotWrap: {
+    alignSelf: 'flex-end',
+    marginTop: -8,
+    marginBottom: 16,
+  },
+  forgotText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#22C55E',
   },
   buttonWrap: {
     marginTop: 4,

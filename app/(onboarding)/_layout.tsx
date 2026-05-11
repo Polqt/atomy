@@ -2,6 +2,7 @@ import { Redirect, Stack } from 'expo-router';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import colors from '../../constants/colors';
+import { hasProfileName } from '../../utils/auth-routing';
 
 export default function SetupLayout() {
   const { user, loading } = useAuth();
@@ -20,8 +21,7 @@ export default function SetupLayout() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  // Redirect to app if profile is already set up
-  if (user.user_metadata?.name) {
+  if (hasProfileName(user)) {
     return <Redirect href="/(tabs)" />;
   }
 

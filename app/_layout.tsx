@@ -1,129 +1,139 @@
-import { useEffect, useRef, useState } from 'react';
-import { Stack, useRouter, usePathname } from 'expo-router';
+/**
+ * Root Layout
+ * Main entry point for the application
+ * Deep link testing requires a development build and will not work correctly in Expo Go.
+ */
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Linking from 'expo-linking';
+import { Stack, router } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AuthProvider, useAuth } from '../context/AuthContext';
-import {
-  getNotificationsEnabled,
-  registerForPushNotifications,
-  syncPushTokenWithBackend,
-} from '../services/notifications';
-import { authorizedRequest, getApiUrl } from '../services/backend';
+import { AuthProvider } from '../context/AuthContext';
+import { useUserSync, usePushTokenSync } from '../hooks/useSessionSync';
+import { useOnboardingGate } from '../hooks/useOnboardingGate';
+import { API } from '../constants/api';
 import SplashScreen from '../components/SplashScreen';
+import { supabase } from '../config/supabase';
+import { ONBOARDING_KEY, getAuthParams, resolveAuthRoute } from '../utils/auth-routing';
 
-// Ensures the user row exists in public.users before any habit inserts
-function UserSync() {
-  const { session } = useAuth();
-  const syncedUserId = useRef<string | null>(null);
-
-  useEffect(() => {
-    const userId = session?.user.id ?? null;
-
-    if (!session || !userId || !getApiUrl()) {
-      if (!session) {
-        syncedUserId.current = null;
-      }
-      return;
-    }
-
-    if (syncedUserId.current === userId) return;
-    syncedUserId.current = userId;
-
-    (async () => {
-      try {
-        await authorizedRequest('/api/users/me', { method: 'GET' }, session.access_token);
-      } catch (err) {
-        console.warn('[users] backend profile sync failed', err);
-      }
-    })();
-  }, [session?.user.id, session?.access_token]);
-
+// Component that handles session sync
+function SessionSync() {
+  useUserSync();
+  usePushTokenSync();
   return null;
 }
 
-function PushTokenSync() {
-  const { session } = useAuth();
-  const syncedUserId = useRef<string | null>(null);
-
-  useEffect(() => {
-    const userId = session?.user.id ?? null;
-
-    if (!session || !userId) {
-      if (!session) {
-        syncedUserId.current = null;
-      }
-      return;
-    }
-
-    if (syncedUserId.current === userId) return;
-    syncedUserId.current = userId;
-
-    (async () => {
-      try {
-        const enabled = await getNotificationsEnabled();
-        if (!enabled) return;
-
-        const token = await registerForPushNotifications();
-        if (token) {
-          await syncPushTokenWithBackend(token, session.access_token);
-        }
-      } catch (err) {
-        console.warn('[notifications] push token sync failed', err);
-      }
-    })();
-  }, [session?.user.id, session?.access_token]);
-
-  return null;
-}
-
+// Component that handles onboarding redirect
 function OnboardingGate({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const { loading: authLoading } = useAuth();
-  const [ready, setReady] = useState(false);
-  const [needsOnboarding, setNeedsOnboarding] = useState(false);
-
-  useEffect(() => {
-    // Only check onboarding after auth has started loading
-    // This prevents redirect race conditions
-    AsyncStorage.getItem('onboarding_complete').then((value) => {
-      setNeedsOnboarding(!value);
-      setReady(true);
-    });
-  }, []);
-
-  // Show nothing while checking or auth is loading
-  if (!ready || authLoading) return null;
-
-  // Allow onboarding route to work if needed
-  if (needsOnboarding && pathname !== '/onboarding') {
-    router.replace('/onboarding');
+  const { shouldRender } = useOnboardingGate();
+  
+  if (!shouldRender) {
     return null;
   }
+  
+  return <>{children}</>;
+}
 
-  // Skip if on onboarding page (let it render normally)
-  if (pathname === '/onboarding') {
-    return <>{children}</>;
-  }
+function DeepLinkHandler({ children }: { children: React.ReactNode }) {
+  const [ready, setReady] = useState(false);
+  const handledUrls = useRef(new Set<string>());
 
+  const routeResolvedSession = async (url: string | null) => {
+    if (!url || handledUrls.current.has(url)) return;
+    handledUrls.current.add(url);
+
+    const params = getAuthParams(url);
+    const accessToken = params.access_token;
+    const refreshToken = params.refresh_token;
+    const code = params.code;
+    const isRecovery = params.type === 'recovery';
+
+    if (!accessToken || !refreshToken) {
+      if (!code) return;
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) throw error;
+      if (isRecovery) {
+        router.replace('/(auth)/reset-password');
+        return;
+      }
+      await AsyncStorage.getItem(ONBOARDING_KEY);
+      router.replace(resolveAuthRoute(data.session, data.session?.user ?? null));
+      return;
+    }
+
+    const { data, error } = await supabase.auth.setSession({
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    });
+
+    if (error) throw error;
+
+    if (isRecovery) {
+      router.replace('/(auth)/reset-password');
+      return;
+    }
+
+    await AsyncStorage.getItem(ONBOARDING_KEY);
+    router.replace(resolveAuthRoute(data.session, data.session?.user ?? null));
+  };
+
+  const handleUrl = async (url: string | null) => {
+    try {
+      await routeResolvedSession(url);
+    } catch {
+      await supabase.auth.signOut();
+      router.replace({
+        pathname: '/(auth)/login',
+        params: { error: 'confirmation_link_invalid' },
+      });
+    }
+  };
+
+  useEffect(() => {
+    Linking.getInitialURL()
+      .then(handleUrl)
+      .finally(() => setReady(true));
+
+    const linkSubscription = Linking.addEventListener('url', ({ url }) => {
+      handleUrl(url);
+    });
+
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        Linking.getInitialURL().then(handleUrl);
+      }
+    });
+
+    return () => {
+      linkSubscription.remove();
+      appStateSubscription.remove();
+    };
+  }, []);
+
+  if (!ready) return null;
   return <>{children}</>;
 }
 
 export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);
-  const [queryClient] = useState(
+
+  // Create QueryClient with optimized defaults
+  const queryClient = useMemo(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            retry: 1,
-            staleTime: 30_000,
+            retry: API.RETRY_COUNT,
+            staleTime: API.STALE_TIME_MS,
           },
         },
       }),
+    []
   );
 
+  // Show splash screen while app initializes
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
@@ -132,11 +142,14 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <AuthProvider>
-          <UserSync />
-          <PushTokenSync />
-          <OnboardingGate>
-            <Stack screenOptions={{ headerShown: false }} />
-          </OnboardingGate>
+          <DeepLinkHandler>
+            <SessionSync />
+            <OnboardingGate>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="add-habit" options={{ presentation: 'transparentModal', animation: 'slide_from_bottom' }} />
+              </Stack>
+            </OnboardingGate>
+          </DeepLinkHandler>
         </AuthProvider>
       </SafeAreaProvider>
     </QueryClientProvider>

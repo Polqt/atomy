@@ -13,6 +13,27 @@ export default function EditHabitScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: habits = [] } = useHabits();
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/');
+  };
+
+  // Guard against missing or invalid ID
+  if (!id) {
+    return (
+      <View style={styles.root}>
+        <View style={styles.notFound}>
+          <Text style={styles.notFoundText}>Invalid habit ID.</Text>
+          <Pressable onPress={goBack} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>← Go back</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   const habit = habits.find((h) => h.id === id);
 
@@ -26,7 +47,7 @@ export default function EditHabitScreen() {
       queryClient.invalidateQueries({ queryKey: queryKeys.todayHabits });
       queryClient.invalidateQueries({ queryKey: queryKeys.history });
       queryClient.invalidateQueries({ queryKey: queryKeys.streak });
-      router.back();
+      goBack();
     },
   });
 
@@ -53,7 +74,7 @@ export default function EditHabitScreen() {
       <View style={styles.root}>
         <View style={styles.notFound}>
           <Text style={styles.notFoundText}>Habit not found.</Text>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Pressable onPress={goBack} style={styles.backBtn}>
             <Text style={styles.backBtnText}>← Go back</Text>
           </Pressable>
         </View>
@@ -70,7 +91,7 @@ export default function EditHabitScreen() {
 
         {/* Back */}
         <Animated.View entering={FadeIn.duration(300)} style={styles.topBar}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Pressable onPress={goBack} style={styles.backBtn}>
             <Text style={styles.backBtnText}>← Back</Text>
           </Pressable>
         </Animated.View>
@@ -146,7 +167,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   content: {
     paddingTop: 64,
-    paddingBottom: 48,
+    paddingBottom: 24,
     paddingHorizontal: 24,
   },
   topBar: {
@@ -186,7 +207,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   pageTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
     color: colors.text,
     letterSpacing: -0.8,

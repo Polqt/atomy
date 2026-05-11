@@ -17,11 +17,15 @@ import { supabase } from '../../config/supabase';
 import colors from '../../constants/colors';
 import { getInitial } from '../../utils/user';
 
+// Supabase Storage setup note:
+// create bucket if not exists avatars public;
+// add policies on storage.objects for bucket_id = 'avatars' so authenticated users can insert/update/select files where name starts with auth.uid() || '/'.
 export default function SetupPhotoScreen() {
   const router = useRouter();
   const { user, updateProfile } = useAuth();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
 
   const name = (user?.user_metadata?.name as string) ?? '';
   const initial = getInitial(name);
@@ -41,11 +45,13 @@ export default function SetupPhotoScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
+      setUploadError('');
       setPhotoUri(result.assets[0].uri);
     }
   };
 
   const uploadAndContinue = async () => {
+    setUploadError('');
     setUploading(true);
     try {
       if (photoUri && user) {
@@ -64,25 +70,28 @@ export default function SetupPhotoScreen() {
         const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
         await updateProfile(name, data.publicUrl);
       }
-      router.push('/setup/done');
-    } catch {
-      Alert.alert(
-        'Upload failed',
-        'Could not upload your photo. You can add one later from your profile.',
-        [{ text: 'Continue anyway', onPress: () => router.push('/setup/done') }],
-      );
+      router.replace('/setup/done');
+    } catch (error: any) {
+      setUploadError(error?.message ?? 'Could not upload your photo. Try again or skip it for now.');
     } finally {
       setUploading(false);
     }
   };
 
-  const skip = () => router.push('/setup/done');
+  const skipPhoto = () => {
+    router.replace('/setup/done');
+  };
 
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
 
       <View style={styles.inner}>
+        <Pressable style={styles.backButton} onPress={() => router.replace('/setup/name')}>
+          <Text style={styles.backIcon}>{'<'}</Text>
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+
         <Animated.Text entering={FadeInDown.duration(400).delay(0)} style={styles.wordmark}>
           atomy
         </Animated.Text>
@@ -111,6 +120,8 @@ export default function SetupPhotoScreen() {
 
         {/* Footer */}
         <Animated.View entering={FadeInDown.duration(440).delay(240)} style={styles.footer}>
+          {uploadError ? <Text style={styles.errorText}>{uploadError}</Text> : null}
+
           <Pressable
             style={[styles.button, uploading && styles.buttonDisabled]}
             onPress={photoUri ? uploadAndContinue : pickPhoto}
@@ -119,13 +130,16 @@ export default function SetupPhotoScreen() {
             {uploading ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
-              <Text style={styles.buttonText}>{photoUri ? 'Continue →' : 'Choose Photo'}</Text>
+              <Text style={styles.buttonText}>
+                {uploadError && photoUri ? 'Retry upload' : photoUri ? 'Continue →' : 'Choose Photo'}
+              </Text>
             )}
           </Pressable>
 
-          <Pressable onPress={skip} style={styles.skipLink} disabled={uploading}>
+          <Pressable style={styles.skipButton} onPress={skipPhoto}>
             <Text style={styles.skipText}>Skip for now</Text>
           </Pressable>
+
         </Animated.View>
       </View>
     </View>
@@ -141,7 +155,27 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 32,
     paddingTop: 64,
-    paddingBottom: 48,
+    paddingBottom: 24,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 28,
+    minHeight: 32,
+  },
+  backIcon: {
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  backText: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: colors.text,
   },
   wordmark: {
     fontSize: 12,
@@ -156,7 +190,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   heading: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: '700',
     color: colors.text,
     letterSpacing: -1.2,
@@ -240,19 +274,26 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.4,
   },
+  errorText: {
+    fontSize: 13,
+    color: colors.danger,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
   buttonText: {
     fontSize: 15,
     fontWeight: '600',
     color: '#fff',
     letterSpacing: 0.3,
   },
-  skipLink: {
+  skipButton: {
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'center',
+    paddingVertical: 6,
   },
   skipText: {
-    fontSize: 13,
-    color: colors.muted,
-    fontWeight: '400',
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
   },
 });

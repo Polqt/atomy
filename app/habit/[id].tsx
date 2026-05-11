@@ -1,19 +1,45 @@
-import { View, Text, Pressable, StyleSheet, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useHabits } from '../../hooks/useHabits';
 import { useMarkHabit } from '../../hooks/useMarkHabit';
+import { useDeleteHabit } from '../../hooks/useDeleteHabit';
+import { useHabitHistory } from '../../hooks/useHabitHistory';
 import { useState } from 'react';
-import { formatDate } from '@/utils/date';
+import { formatDate, formatTime } from '@/utils/date';
 import colors from '../../constants/colors';
 
 export default function HabitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { data: habits = [] } = useHabits();
+  const { data: history = [] } = useHabitHistory();
   const { mutate: mark, isPending: acting } = useMarkHabit();
+  const { mutate: deleteHabit, isPending: deleting } = useDeleteHabit();
   const [localStatus, setLocalStatus] = useState<'done' | 'skipped' | null>(null);
   const [error, setError] = useState('');
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/');
+  };
+
+  // Guard against missing or invalid ID
+  if (!id) {
+    return (
+      <View style={styles.root}>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <View style={styles.notFound}>
+          <Text style={styles.notFoundText}>Invalid habit ID.</Text>
+          <Pressable onPress={goBack} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>← Go back</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   const habit = habits.find((h) => h.id === id);
 
@@ -23,7 +49,7 @@ export default function HabitDetailScreen() {
         <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
         <View style={styles.notFound}>
           <Text style={styles.notFoundText}>Habit not found.</Text>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Pressable onPress={goBack} style={styles.backBtn}>
             <Text style={styles.backBtnText}>← Go back</Text>
           </Pressable>
         </View>
@@ -44,6 +70,26 @@ export default function HabitDetailScreen() {
     );
   };
 
+  const recentActivity = history
+    .filter((entry) => entry.habit_id === habit.id)
+    .slice(0, 5);
+
+  const confirmDelete = () => {
+    Alert.alert('Delete this habit?', 'This permanently removes the habit from your list.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          deleteHabit(habit.id, {
+            onSuccess: () => router.replace('/'),
+            onError: (e) => setError((e as Error).message ?? 'Could not delete habit.'),
+          });
+        },
+      },
+    ]);
+  };
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
@@ -51,7 +97,7 @@ export default function HabitDetailScreen() {
 
         {/* Back button + Edit */}
         <Animated.View entering={FadeIn.duration(300)} style={styles.topBar}>
-          <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Pressable onPress={goBack} style={styles.backBtn}>
             <Text style={styles.backBtnText}>← Back</Text>
           </Pressable>
           <Pressable onPress={() => router.push(`/edit-habit?id=${id}`)} style={styles.editBtn}>
@@ -90,7 +136,10 @@ export default function HabitDetailScreen() {
         {/* Why this matters */}
         {habit.goal ? (
           <Animated.View entering={FadeInDown.duration(440).delay(200)} style={styles.goalBlock}>
-            <Text style={styles.goalEyebrow}>Why this matters</Text>
+            <View style={styles.goalEyebrowRow}>
+              <View style={styles.goalEyebrowDot} />
+              <Text style={styles.goalEyebrow}>Why this matters</Text>
+            </View>
             <Text style={styles.goalText}>{habit.goal}</Text>
           </Animated.View>
         ) : null}
@@ -128,6 +177,34 @@ export default function HabitDetailScreen() {
             </Pressable>
           </Animated.View>
         )}
+
+        <Animated.View entering={FadeInDown.duration(440).delay(320)} style={styles.recentSection}>
+          <Text style={styles.recentTitle}>Recent activity for this habit</Text>
+          {recentActivity.length === 0 ? (
+            <Text style={styles.noActivityText}>No activity yet</Text>
+          ) : (
+            recentActivity.map((entry, index) => (
+              <View key={entry.id}>
+                <View style={styles.activityRow}>
+                  <Text style={styles.activityDate}>
+                    {new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {formatTime(entry.created_at)}
+                  </Text>
+                  <View style={[styles.activityPill, entry.completed ? styles.activityPillDone : styles.activityPillSkipped]}>
+                    <Text style={[styles.activityPillText, entry.completed ? styles.activityPillTextDone : styles.activityPillTextSkipped]}>
+                      {entry.completed ? 'Completed' : 'Skipped'}
+                    </Text>
+                  </View>
+                </View>
+                {index !== recentActivity.length - 1 ? <View style={styles.activityDivider} /> : null}
+              </View>
+            ))
+          )}
+        </Animated.View>
+
+        <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteHabitButton}>
+          <View style={styles.deleteSeparator} />
+          <Text style={styles.deleteHabitText}>{deleting ? 'Deleting...' : 'Delete habit'}</Text>
+        </Pressable>
       </ScrollView>
     </View>
   );
@@ -197,51 +274,45 @@ const styles = StyleSheet.create({
   },
   badgeDone: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.primaryPale,
+    backgroundColor: 'rgba(52,199,89,0.12)',
     borderRadius: 99,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: colors.primaryLight,
-    marginBottom: 20,
+    marginBottom: 8,
   },
   badgeDoneText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#166534',
+    fontWeight: '500',
+    color: '#1E7A3A',
   },
   badgeSkip: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.skipBg,
+    backgroundColor: 'rgba(255,59,48,0.10)',
     borderRadius: 99,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: colors.skipBorder,
-    marginBottom: 20,
+    marginBottom: 8,
   },
   badgeSkipText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.skipText,
+    fontWeight: '500',
+    color: '#CC2200',
   },
   badgePending: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.soft,
+    backgroundColor: 'rgba(255,179,0,0.12)',
     borderRadius: 99,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 20,
+    marginBottom: 8,
   },
   badgePendingText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: colors.muted,
+    fontWeight: '500',
+    color: '#B37A00',
   },
   habitText: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '700',
     color: colors.text,
     lineHeight: 36,
@@ -257,6 +328,17 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     gap: 8,
   },
+  goalEyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  goalEyebrowDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: colors.primary,
+  },
   goalEyebrow: {
     fontSize: 10,
     fontWeight: '700',
@@ -271,6 +353,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   dateText: {
+    marginTop: 4,
     fontSize: 12,
     fontWeight: '400',
     color: colors.muted,
@@ -293,8 +376,8 @@ const styles = StyleSheet.create({
   },
   doneBtn: {
     backgroundColor: colors.primary,
-    borderRadius: 50,
-    paddingVertical: 16,
+    height: 54,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.primary,
@@ -309,13 +392,89 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   skipLink: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.surface,
+    height: 54,
+    borderRadius: 28,
+    paddingHorizontal: 12,
     alignItems: 'center',
-    paddingVertical: 8,
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   skipLinkText: {
     fontSize: 13,
     fontWeight: '400',
     color: colors.muted,
+  },
+  recentSection: {
+    marginTop: 30,
+    gap: 12,
+  },
+  recentTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  noActivityText: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: colors.muted,
+    paddingVertical: 14,
+  },
+  activityRow: {
+    height: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  activityDate: {
+    fontSize: 13,
+    color: colors.muted,
+  },
+  activityPill: {
+    borderRadius: 99,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  activityPillDone: {
+    backgroundColor: 'rgba(52,199,89,0.12)',
+  },
+  activityPillSkipped: {
+    backgroundColor: 'rgba(255,59,48,0.10)',
+  },
+  activityPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  activityPillTextDone: {
+    color: colors.primary,
+  },
+  activityPillTextSkipped: {
+    color: '#FF3B30',
+  },
+  activityDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+  },
+  deleteHabitButton: {
+    alignItems: 'center',
+    marginTop: 24,
+    paddingBottom: 24,
+  },
+  deleteSeparator: {
+    alignSelf: 'stretch',
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    marginBottom: 24,
+  },
+  deleteHabitText: {
+    fontSize: 13,
+    color: '#FF3B30',
   },
   notFound: {
     flex: 1,

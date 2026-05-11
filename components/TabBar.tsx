@@ -6,7 +6,47 @@ import { APP_TABS } from '@/constants/tabs';
 
 const GREEN = colors.primary;
 const MUTED = colors.muted;
-const BORDER = colors.border;
+type TabIconName = (typeof APP_TABS)[number]['icon'];
+
+function TabIcon({ name, active }: { name: TabIconName; active: boolean }) {
+  const stroke = active ? GREEN : MUTED;
+  const fill = active ? GREEN : 'transparent';
+  const accent = active ? colors.surface : stroke;
+
+  if (name === 'home') {
+    return (
+      <View style={styles.iconBox}>
+        <View style={[styles.homeRoof, { borderColor: stroke, backgroundColor: fill }]} />
+        <View style={[styles.homeBody, { borderColor: stroke, backgroundColor: fill }]} />
+      </View>
+    );
+  }
+
+  if (name === 'calendar') {
+    return (
+      <View style={[styles.calendarIcon, { borderColor: stroke, backgroundColor: fill }]}>
+        <View style={[styles.calendarTop, { backgroundColor: accent }]} />
+      </View>
+    );
+  }
+
+  if (name === 'history') {
+    return (
+      <View style={[styles.historyIcon, { borderColor: stroke, backgroundColor: fill }]}>
+        <View style={[styles.historyLine, { backgroundColor: accent }]} />
+        <View style={[styles.historyLine, { backgroundColor: accent }]} />
+        <View style={[styles.historyLine, { backgroundColor: accent }]} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.sparkleIcon, { borderColor: stroke, backgroundColor: fill }]}>
+      <View style={[styles.sparkleVertical, { backgroundColor: accent }]} />
+      <View style={[styles.sparkleHorizontal, { backgroundColor: accent }]} />
+    </View>
+  );
+}
 
 export default function TabBar() {
   const router = useRouter();
@@ -23,9 +63,8 @@ export default function TabBar() {
             style={styles.tab}
             onPress={() => router.push(tab.href)}
           >
-            <Text style={[styles.icon, active && styles.iconActive]}>{tab.icon}</Text>
-            <Text style={[styles.label, active && styles.labelActive]}>{tab.label}</Text>
-            {active && <View style={styles.activePill} />}
+            <TabIcon name={tab.icon} active={active} />
+            {active ? <Text style={[styles.label, styles.labelActive]}>{tab.label}</Text> : null}
           </Pressable>
         );
       })}
@@ -36,9 +75,7 @@ export default function TabBar() {
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: BORDER,
+    backgroundColor: colors.surface,
     paddingBottom: 12,
     paddingTop: 10,
     shadowColor: '#000',
@@ -53,12 +90,76 @@ const styles = StyleSheet.create({
     gap: 3,
     paddingTop: 4,
   },
-  icon: {
-    fontSize: 16,
-    color: MUTED,
+  iconBox: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
-  iconActive: {
-    color: GREEN,
+  homeRoof: {
+    width: 13,
+    height: 13,
+    borderLeftWidth: 2,
+    borderTopWidth: 2,
+    borderTopLeftRadius: 2,
+    transform: [{ rotate: '45deg' }],
+    position: 'absolute',
+    top: 3,
+  },
+  homeBody: {
+    width: 15,
+    height: 12,
+    borderWidth: 2,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 3,
+    borderBottomRightRadius: 3,
+    position: 'absolute',
+    bottom: 3,
+  },
+  calendarIcon: {
+    width: 19,
+    height: 18,
+    borderWidth: 2,
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  calendarTop: {
+    height: 4,
+    width: '100%',
+  },
+  historyLine: {
+    width: 12,
+    height: 2,
+    borderRadius: 1,
+    marginVertical: 1.5,
+  },
+  historyIcon: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sparkleVertical: {
+    width: 2,
+    height: 12,
+    borderRadius: 1,
+  },
+  sparkleHorizontal: {
+    width: 12,
+    height: 2,
+    borderRadius: 1,
+    position: 'absolute',
+  },
+  sparkleIcon: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   label: {
     color: MUTED,
@@ -69,12 +170,5 @@ const styles = StyleSheet.create({
   },
   labelActive: {
     color: GREEN,
-  },
-  activePill: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: GREEN,
-    marginTop: 1,
   },
 });

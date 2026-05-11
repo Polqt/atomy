@@ -1,9 +1,13 @@
 import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Link } from 'expo-router';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useAuth } from '../../context/AuthContext';
-import { AuthCardShell, AuthField, AuthButton, AuthDivider, AuthOAuthButton } from '../../components/AuthCard';
+import { AuthCardShell, AuthField, AuthButton, AuthError } from '../../components/AuthCard';
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
 
 function SuccessState({ email }: { email: string }) {
   return (
@@ -56,11 +60,15 @@ export default function SignupScreen() {
   const { signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [confirmError, setConfirmError] = useState('');
   const [authError, setAuthError] = useState('');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   if (done) return <SuccessState email={email} />;
 
@@ -68,12 +76,16 @@ export default function SignupScreen() {
     let valid = true;
     setEmailError('');
     setPasswordError('');
-    setAuthError('');
+    setConfirmError('');
 
     if (!email.trim()) {
       setEmailError('Please enter your email.');
       valid = false;
+    } else if (!isValidEmail(email)) {
+      setEmailError('Enter a valid email address.');
+      valid = false;
     }
+
     if (!password) {
       setPasswordError('Please enter a password.');
       valid = false;
@@ -81,6 +93,15 @@ export default function SignupScreen() {
       setPasswordError('Password must be at least 6 characters.');
       valid = false;
     }
+
+    if (!confirmPassword) {
+      setConfirmError('Please confirm your password.');
+      valid = false;
+    } else if (confirmPassword !== password) {
+      setConfirmError('Passwords do not match.');
+      valid = false;
+    }
+
     return valid;
   };
 
@@ -97,25 +118,35 @@ export default function SignupScreen() {
     }
   };
 
-  const handleOAuth = () => {
-    Alert.alert('Coming soon', 'OAuth will be available in a future update.');
-  };
+  const clearErrors = () => setAuthError('');
+  const canSubmit =
+    isValidEmail(email) &&
+    password.length >= 6 &&
+    confirmPassword === password &&
+    !loading;
 
   return (
     <AuthCardShell>
-      {/* Heading */}
       <Animated.View entering={FadeInDown.duration(420).delay(100)} style={styles.headingBlock}>
         <Text style={styles.title}>Create account.</Text>
         <Text style={styles.subtitle}>Start building better habits today.</Text>
       </Animated.View>
 
-      {/* Fields */}
+      <AuthError message={authError} />
+
       <View style={styles.fields}>
         <AuthField
           label="Email"
           delay={180}
           value={email}
-          onChangeText={(v) => { setEmail(v); setEmailError(''); }}
+          onChangeText={(v) => {
+            setEmail(v);
+            setEmailError('');
+            clearErrors();
+          }}
+          onBlur={() => {
+            if (email.trim() && !isValidEmail(email)) setEmailError('Enter a valid email address.');
+          }}
           placeholder="you@example.com"
           autoCapitalize="none"
           keyboardType="email-address"
@@ -127,11 +158,24 @@ export default function SignupScreen() {
           label="Password"
           delay={240}
           value={password}
-          onChangeText={(v) => { setPassword(v); setPasswordError(''); setAuthError(''); }}
+          onChangeText={(v) => {
+            setPassword(v);
+            setPasswordError('');
+            if (confirmPassword && confirmPassword === v) setConfirmError('');
+            clearErrors();
+          }}
+          onBlur={() => {
+            if (password && password.length < 6) setPasswordError('Password must be at least 6 characters.');
+          }}
           placeholder="min. 6 characters"
-          secureTextEntry
+          secureTextEntry={!showPassword}
           autoComplete="new-password"
-          error={passwordError || authError}
+          error={passwordError}
+          rightElement={
+            <Pressable onPress={() => setShowPassword((value) => !value)} hitSlop={8}>
+              <Text style={styles.eyeText}>{showPassword ? 'Hide' : 'Show'}</Text>
+            </Pressable>
+          }
         />
 
         {password.length > 0 && (
@@ -139,27 +183,41 @@ export default function SignupScreen() {
             <PasswordStrengthBar password={password} />
           </Animated.View>
         )}
+
+        <AuthField
+          label="Confirm password"
+          delay={280}
+          value={confirmPassword}
+          onChangeText={(v) => {
+            setConfirmPassword(v);
+            setConfirmError('');
+            clearErrors();
+          }}
+          onBlur={() => {
+            if (confirmPassword && confirmPassword !== password) setConfirmError('Passwords do not match.');
+          }}
+          placeholder="repeat password"
+          secureTextEntry={!showConfirmPassword}
+          autoComplete="new-password"
+          error={confirmError}
+          rightElement={
+            <Pressable onPress={() => setShowConfirmPassword((value) => !value)} hitSlop={8}>
+              <Text style={styles.eyeText}>{showConfirmPassword ? 'Hide' : 'Show'}</Text>
+            </Pressable>
+          }
+        />
       </View>
 
-      {/* CTA */}
       <View style={styles.buttonWrap}>
         <AuthButton
           label="Create account"
           onPress={handleSignup}
           loading={loading}
-          disabled={loading}
-          delay={300}
+          disabled={!canSubmit}
+          delay={320}
         />
       </View>
 
-      {/* OAuth */}
-      <Animated.View entering={FadeIn.duration(380).delay(380)}>
-        <AuthDivider />
-        <AuthOAuthButton icon="G" label="Continue with Google" onPress={handleOAuth} />
-        <AuthOAuthButton icon="" label="Continue with Apple" onPress={handleOAuth} />
-      </Animated.View>
-
-      {/* Switch */}
       <Animated.View entering={FadeIn.duration(380).delay(460)} style={styles.switchRow}>
         <Text style={styles.switchText}>Already have an account?</Text>
         <Link href="/(auth)/login" asChild>
@@ -193,6 +251,11 @@ const styles = StyleSheet.create({
   },
   fields: {
     gap: 4,
+  },
+  eyeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#22C55E',
   },
   strengthRow: {
     marginTop: -8,
@@ -242,8 +305,6 @@ const styles = StyleSheet.create({
     color: '#22C55E',
     fontWeight: '600',
   },
-
-  // Success state
   successBlock: {
     alignItems: 'center',
     paddingVertical: 20,

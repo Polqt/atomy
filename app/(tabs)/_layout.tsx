@@ -1,12 +1,15 @@
 import { Redirect, Stack } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { hasProfileName } from '../../utils/auth-routing';
 
 export default function AppLayout() {
-  const { user, loading } = useAuth();
+  const { session, user, loading } = useAuth();
 
   if (loading) return null;
-  if (!user) return <Redirect href="/(auth)/login" />;
-  if (!user.user_metadata?.name) return <Redirect href="/setup/name" />;
+  if (!session || !user) {
+    return <Redirect href="/(auth)/login" />;
+  }
+  if (!hasProfileName(user)) return <Redirect href="/setup/name" />;
 
   return (
     <Stack

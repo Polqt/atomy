@@ -6,8 +6,8 @@ export function useCreateHabit() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ goal, habit }: { goal: string; habit: string }) =>
-      saveHabit(goal, habit),
+    mutationFn: ({ goal, habit, frequency = 'daily' }: { goal: string; habit: string; frequency?: string }) =>
+      saveHabit(goal, habit, frequency),
 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.todayHabits });

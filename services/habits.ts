@@ -47,6 +47,18 @@ export async function updateHabit(id: string, habit: string, goal: string): Prom
   });
 }
 
+export async function updateHabitWithFrequency(
+  id: string,
+  habit: string,
+  goal: string,
+  frequency: string,
+): Promise<void> {
+  await authorizedRequest(`/api/habits/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ habit, goal, frequency }),
+  });
+}
+
 export async function deleteHabit(id: string): Promise<void> {
   await authorizedRequest(`/api/habits/${id}`, {
     method: 'DELETE',
@@ -60,9 +72,9 @@ export async function markHabit(id: string, completed: boolean): Promise<void> {
   });
 }
 
-export async function saveHabit(goal: string, habit: string): Promise<void> {
+export async function saveHabit(goal: string, habit: string, frequency = 'daily'): Promise<void> {
   await authorizedRequest('/api/habits', {
     method: 'POST',
-    body: JSON.stringify({ goal, habit }),
+    body: JSON.stringify({ goal, habit, frequency }),
   });
 }

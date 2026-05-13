@@ -81,15 +81,15 @@ export class HabitsService {
     return { streak };
   }
 
-  async createHabit(userId: string, goal: string, habit: string) {
-    const rows = await this.habitsRepository.create({ userId, goal, habit, completed: false });
+  async createHabit(userId: string, goal: string, habit: string, frequency = 'daily') {
+    const rows = await this.habitsRepository.create({ userId, goal, habit, frequency, completed: false });
     return rows[0];
   }
 
   async updateHabit(
     id: string,
     userId: string,
-    data: Partial<{ goal: string; habit: string; completed: boolean }>,
+    data: Partial<{ goal: string; habit: string; completed: boolean; frequency: string }>,
   ) {
     if (typeof data.completed === 'boolean') {
       const habit = await this.habitsRepository.findById(id, userId);

@@ -58,7 +58,7 @@ export class HabitsController {
     @CurrentUser('id') userId: string,
     @Body() body: CreateHabitDto,
   ) {
-    return this.habitsService.createHabit(userId, body.goal, body.habit);
+    return this.habitsService.createHabit(userId, body.goal, body.habit, body.frequency);
   }
 
   @Put(':id')

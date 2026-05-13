@@ -1,4 +1,6 @@
-import { IsBoolean, IsOptional, IsString, MaxLength, IsNumber, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+
+const HABIT_FREQUENCIES = ['daily', 'weekly', 'monthly', 'weekdays', 'weekends'] as const;
 
 export class PaginationDto {
   @IsOptional()
@@ -20,6 +22,11 @@ export class CreateHabitDto {
   @IsString()
   @MaxLength(200)
   habit!: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(HABIT_FREQUENCIES)
+  frequency?: string;
 }
 
 export class UpdateHabitDto {
@@ -36,4 +43,9 @@ export class UpdateHabitDto {
   @IsOptional()
   @IsBoolean()
   completed?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(HABIT_FREQUENCIES)
+  frequency?: string;
 }

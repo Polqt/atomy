@@ -3,10 +3,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { updateHabit, deleteHabit } from '../services/habits';
+import { updateHabitWithFrequency, deleteHabit } from '../services/habits';
+import type { HabitFrequency } from '../types/habit';
 import { useHabits } from '../hooks/useHabits';
 import { queryKeys } from '../hooks/queryKeys';
 import colors from '../constants/colors';
+
+const FREQUENCIES: HabitFrequency[] = ['daily', 'weekly', 'monthly', 'weekdays', 'weekends'];
 
 export default function EditHabitScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -21,7 +24,6 @@ export default function EditHabitScreen() {
     router.replace('/');
   };
 
-  // Guard against missing or invalid ID
   if (!id) {
     return (
       <View style={styles.root}>
@@ -39,9 +41,10 @@ export default function EditHabitScreen() {
 
   const [habitText, setHabitText] = useState(habit?.habit ?? '');
   const [goalText, setGoalText] = useState(habit?.goal ?? '');
+  const [frequency, setFrequency] = useState<HabitFrequency>(habit?.frequency ?? 'daily');
 
   const { mutate: save, isPending: saving } = useMutation({
-    mutationFn: () => updateHabit(id!, habitText.trim(), goalText.trim()),
+    mutationFn: () => updateHabitWithFrequency(id!, habitText.trim(), goalText.trim(), frequency),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.habits });
       queryClient.invalidateQueries({ queryKey: queryKeys.todayHabits });
@@ -88,15 +91,11 @@ export default function EditHabitScreen() {
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-
-        {/* Back */}
         <Animated.View entering={FadeIn.duration(300)} style={styles.topBar}>
           <Pressable onPress={goBack} style={styles.backBtn}>
             <Text style={styles.backBtnText}>← Back</Text>
           </Pressable>
         </Animated.View>
-
-        {/* Title */}
         <Animated.View entering={FadeInDown.duration(400).delay(60)}>
           <View style={styles.eyebrowRow}>
             <View style={styles.eyebrowDot} />
@@ -104,8 +103,6 @@ export default function EditHabitScreen() {
           </View>
           <Text style={styles.pageTitle}>Update your habit</Text>
         </Animated.View>
-
-        {/* Form */}
         <Animated.View entering={FadeInDown.duration(440).delay(120)} style={styles.form}>
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Habit description</Text>
@@ -131,9 +128,24 @@ export default function EditHabitScreen() {
               placeholderTextColor={colors.muted}
             />
           </View>
-        </Animated.View>
 
-        {/* Save button */}
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Frequency</Text>
+            <View style={styles.frequencyRow}>
+              {FREQUENCIES.map((item) => (
+                <Pressable
+                  key={item}
+                  onPress={() => setFrequency(item)}
+                  style={[styles.frequencyPill, frequency === item && styles.frequencyPillActive]}
+                >
+                  <Text style={[styles.frequencyText, frequency === item && styles.frequencyTextActive]}>
+                    {item.charAt(0).toUpperCase() + item.slice(1)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        </Animated.View>
         <Animated.View entering={FadeInDown.duration(440).delay(180)}>
           <Pressable
             onPress={canSave && !saving ? () => save() : undefined}
@@ -146,8 +158,6 @@ export default function EditHabitScreen() {
             )}
           </Pressable>
         </Animated.View>
-
-        {/* Delete link */}
         <Animated.View entering={FadeInDown.duration(400).delay(220)} style={styles.deleteSection}>
           <Pressable onPress={deleting ? undefined : confirmDelete} style={[deleting && { opacity: 0.5 }]}>
             <Text style={styles.deleteText}>{deleting ? 'Deleting…' : 'Delete Habit'}</Text>
@@ -265,6 +275,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: colors.danger,
+  },
+  frequencyRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  frequencyPill: {
+    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  frequencyPillActive: {
+    borderColor: colors.primary,
+    backgroundColor: 'rgba(52,199,89,0.12)',
+  },
+  frequencyText: {
+    fontSize: 12,
+    color: colors.muted,
+    fontWeight: '600',
+  },
+  frequencyTextActive: {
+    color: colors.primary,
   },
   notFound: {
     flex: 1,

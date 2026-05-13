@@ -17,17 +17,32 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../config/supabase';
+import TabScreen from '../components/TabScreen';
 import { useAuth } from '../context/AuthContext';
 import { useHabits } from '../hooks/useHabits';
 import { useHabitHistory } from '../hooks/useHabitHistory';
 import colors from '../constants/colors';
 import { getDisplayNameFromEmail, getInitial } from '../utils/user';
 
-function StatCell({ value, label }: { value: string; label: string }) {
-  return (
-    <View style={styles.statCell}>
+function StatCell({ value, label, onPress }: { value: string; label: string; onPress?: () => void }) {
+  const content = (
+    <>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable onPress={onPress} style={styles.statCell}>
+        {content}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={styles.statCell}>
+      {content}
     </View>
   );
 }
@@ -48,6 +63,7 @@ export default function ProfileScreen() {
   const [editOpen, setEditOpen] = useState(false);
   const [name, setName] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoMimeType, setPhotoMimeType] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -80,6 +96,7 @@ export default function ProfileScreen() {
 
     if (!result.canceled && result.assets[0]) {
       setPhotoUri(result.assets[0].uri);
+      setPhotoMimeType(result.assets[0].mimeType ?? 'image/jpeg');
       setError('');
     }
   };
@@ -93,13 +110,13 @@ export default function ProfileScreen() {
     try {
       let nextAvatarUrl = avatarUrl;
       if (photoUri) {
-        const ext = photoUri.split('.').pop() ?? 'jpg';
+        const ext = photoMimeType?.split('/')[1] ?? photoUri.split('.').pop() ?? 'jpg';
         const fileName = `${user.id}/avatar.${ext}`;
         const response = await fetch(photoUri);
-        const blob = await response.blob();
+        const fileBody = await response.arrayBuffer();
         const { error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(fileName, blob, { upsert: true, contentType: `image/${ext}` });
+          .upload(fileName, fileBody, { upsert: true, contentType: photoMimeType ?? `image/${ext}` });
         if (uploadError) throw uploadError;
         const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
         nextAvatarUrl = data.publicUrl;
@@ -149,22 +166,13 @@ export default function ProfileScreen() {
     router.replace('/(auth)/login');
   };
 
-  const goBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-    router.replace('/');
-  };
-
   return (
+    <TabScreen>
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.topRow}>
-          <Pressable onPress={goBack} style={styles.backButton}>
-            <Text style={styles.backText}>← Back</Text>
-          </Pressable>
+          <View />
           <Pressable onPress={() => setEditOpen(true)} style={styles.editButton}>
             <Text style={styles.editText}>Edit</Text>
           </Pressable>
@@ -189,7 +197,7 @@ export default function ProfileScreen() {
           <View style={styles.statDivider} />
           <StatCell value={String(completedCount)} label="Habits done" />
           <View style={styles.statDivider} />
-          <StatCell value={String(habits.length)} label="Total tracked" />
+          <StatCell value={String(habits.length)} label="Total tracked" onPress={() => router.push('/profile-habits')} />
         </View>
 
         <Text style={styles.sectionLabel}>SETTINGS</Text>
@@ -267,6 +275,7 @@ export default function ProfileScreen() {
         </Pressable>
       </Modal>
     </View>
+    </TabScreen>
   );
 }
 
@@ -285,17 +294,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  backButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-  },
-  backText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.muted,
   },
   editButton: {
     paddingVertical: 10,
@@ -461,12 +459,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   deleteAccountLink: {
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 1,
+    borderColor: colors.dangerBorder,
+    backgroundColor: colors.dangerBg,
     alignItems: 'center',
-    paddingVertical: 4,
+    justifyContent: 'center',
   },
   deleteAccountText: {
-    fontSize: 12,
-    color: colors.muted,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.danger,
   },
   modalBackdrop: {
     flex: 1,

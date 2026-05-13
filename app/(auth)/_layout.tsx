@@ -8,7 +8,6 @@ export default function AuthLayout() {
   const { user, loading } = useAuth();
   const pathname = usePathname();
 
-  // Show loading spinner while checking auth state
   if (loading) {
     return (
       <View style={styles.loading}>

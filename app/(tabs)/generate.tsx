@@ -132,7 +132,6 @@ export default function GenerateScreen() {
           </Animated.View>
         )}
       </ScrollView>
-      {/* TabBar is rendered by TabScreen; use it as a wrapper */}
     </KeyboardAvoidingView>
   );
 }

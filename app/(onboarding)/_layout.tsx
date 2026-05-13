@@ -7,7 +7,6 @@ import { hasProfileName } from '../../utils/auth-routing';
 export default function SetupLayout() {
   const { user, loading } = useAuth();
 
-  // Show loading spinner while checking auth state
   if (loading) {
     return (
       <View style={styles.loading}>
@@ -16,7 +15,6 @@ export default function SetupLayout() {
     );
   }
 
-  // Redirect to login if not authenticated
   if (!user) {
     return <Redirect href="/(auth)/login" />;
   }

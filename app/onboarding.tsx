@@ -54,7 +54,6 @@ const SLIDES = [
   },
 ];
 
-// Softly drifting ambient blob
 function Blob({
   size,
   color,
@@ -139,13 +138,9 @@ function Blob({
 function Background() {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {/* Large anchor blob top-right */}
       <Blob size={width * 0.8} color={colors.primaryLight} top={-width * 0.25} left={width * 0.35} delay={0} duration={4200} />
-      {/* Mid blob center-left */}
       <Blob size={width * 0.55} color={`${GREEN_MID}55`} top={height * 0.28} left={-width * 0.18} delay={600} duration={5100} />
-      {/* Small accent bottom-right */}
       <Blob size={width * 0.38} color={colors.primaryLight} top={height * 0.62} left={width * 0.6} delay={1200} duration={3800} />
-      {/* Tiny top-left whisper */}
       <Blob size={width * 0.22} color={`${colors.primary}22`} top={height * 0.1} left={-width * 0.05} delay={900} duration={4600} />
     </View>
   );
@@ -166,12 +161,10 @@ function SlideDot({ scrollX, index }: { scrollX: SharedValue<number>; index: num
 function SlideItem({ item, index }: { item: (typeof SLIDES)[0]; index: number }) {
   return (
     <View style={styles.slide}>
-      {/* Ghost index numeral */}
       <Animated.Text entering={FadeIn.duration(400).delay(100)} style={styles.ghostNumeral}>
         {item.index}
       </Animated.Text>
 
-      {/* Main content block */}
       <View style={styles.slideContent}>
         <Animated.Text
           entering={FadeInDown.duration(500).delay(180)}
@@ -234,7 +227,6 @@ export default function OnboardingScreen() {
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       <Background />
 
-      {/* Top bar */}
       <Animated.View entering={FadeIn.duration(400)} style={styles.topBar}>
         <Text style={styles.wordmark}>atomy</Text>
         {!isLast && (
@@ -244,7 +236,6 @@ export default function OnboardingScreen() {
         )}
       </Animated.View>
 
-      {/* Slides */}
       <Animated.FlatList
         ref={listRef}
         data={SLIDES}
@@ -261,16 +252,13 @@ export default function OnboardingScreen() {
         renderItem={({ item, index }) => <SlideItem item={item} index={index} />}
       />
 
-      {/* Footer */}
       <Animated.View entering={FadeInDown.duration(400).delay(200)} style={styles.footer}>
-        {/* Dot indicators */}
         <View style={styles.dotsRow}>
           <SlideDot scrollX={scrollX} index={0} />
           <SlideDot scrollX={scrollX} index={1} />
           <SlideDot scrollX={scrollX} index={2} />
         </View>
 
-        {/* CTA Button */}
         <Pressable
           onPress={handleNext}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}

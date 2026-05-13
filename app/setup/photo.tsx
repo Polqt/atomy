@@ -17,13 +17,11 @@ import { supabase } from '../../config/supabase';
 import colors from '../../constants/colors';
 import { getInitial } from '../../utils/user';
 
-// Supabase Storage setup note:
-// create bucket if not exists avatars public;
-// add policies on storage.objects for bucket_id = 'avatars' so authenticated users can insert/update/select files where name starts with auth.uid() || '/'.
 export default function SetupPhotoScreen() {
   const router = useRouter();
   const { user, updateProfile } = useAuth();
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoMimeType, setPhotoMimeType] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
@@ -47,6 +45,7 @@ export default function SetupPhotoScreen() {
     if (!result.canceled && result.assets[0]) {
       setUploadError('');
       setPhotoUri(result.assets[0].uri);
+      setPhotoMimeType(result.assets[0].mimeType ?? 'image/jpeg');
     }
   };
 
@@ -55,15 +54,15 @@ export default function SetupPhotoScreen() {
     setUploading(true);
     try {
       if (photoUri && user) {
-        const ext = photoUri.split('.').pop() ?? 'jpg';
+        const ext = photoMimeType?.split('/')[1] ?? photoUri.split('.').pop() ?? 'jpg';
         const fileName = `${user.id}/avatar.${ext}`;
 
         const response = await fetch(photoUri);
-        const blob = await response.blob();
+        const fileBody = await response.arrayBuffer();
 
         const { error: uploadError } = await supabase.storage
           .from('avatars')
-          .upload(fileName, blob, { upsert: true, contentType: `image/${ext}` });
+          .upload(fileName, fileBody, { upsert: true, contentType: photoMimeType ?? `image/${ext}` });
 
         if (uploadError) throw uploadError;
 
@@ -101,7 +100,6 @@ export default function SetupPhotoScreen() {
           <Text style={styles.sub}>Help us put a face to your habits.</Text>
         </Animated.View>
 
-        {/* Avatar */}
         <Animated.View entering={FadeInDown.duration(440).delay(160)} style={styles.avatarSection}>
           <Pressable onPress={pickPhoto} style={styles.avatarWrap}>
             {photoUri ? (
@@ -118,7 +116,6 @@ export default function SetupPhotoScreen() {
           <Text style={styles.tapHint}>Tap to choose a photo</Text>
         </Animated.View>
 
-        {/* Footer */}
         <Animated.View entering={FadeInDown.duration(440).delay(240)} style={styles.footer}>
           {uploadError ? <Text style={styles.errorText}>{uploadError}</Text> : null}
 

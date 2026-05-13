@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, usePathname } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../context/AuthContext';
@@ -16,54 +16,48 @@ export function useOnboardingGate() {
     });
   }, []);
 
-  if (authLoading || !onboardingChecked) {
-    return { shouldRender: false, shouldRedirect: false };
-  }
+  const ready = !authLoading && onboardingChecked;
 
-  const isAuthRoute =
-    pathname.startsWith('/(auth)') ||
-    pathname === '/login' ||
-    pathname === '/signup' ||
-    pathname === '/forgot-password' ||
-    pathname === '/reset-password';
-  const isNameRoute = pathname === '/setup/name';
-  const isSetupRoute = pathname.startsWith('/setup/');
-  const isResetPasswordRoute = pathname === '/reset-password';
-  const isTabsRoute = pathname.startsWith('/(tabs)') || pathname === '/';
-  const profile = user ?? session?.user ?? null;
-  const resolvedRoute = resolveAuthRoute(session, profile);
+  const nextRoute = useMemo(() => {
+    if (!ready) return null;
 
-  if (resolvedRoute === '/(auth)/login') {
-    if (!isAuthRoute) {
-      router.replace('/(auth)/login');
-      return { shouldRender: false, shouldRedirect: true };
+    const isAuthRoute =
+      pathname.startsWith('/(auth)') ||
+      pathname === '/login' ||
+      pathname === '/signup' ||
+      pathname === '/forgot-password' ||
+      pathname === '/reset-password';
+    const isNameRoute = pathname === '/setup/name';
+    const isSetupRoute = pathname.startsWith('/setup/');
+    const isResetPasswordRoute = pathname === '/reset-password';
+    const profile = user ?? session?.user ?? null;
+    const resolvedRoute = resolveAuthRoute(session, profile);
+
+    if (resolvedRoute === '/(auth)/login') {
+      return isAuthRoute ? null : '/(auth)/login';
     }
-    return { shouldRender: true, shouldRedirect: false };
-  }
 
-  if (resolvedRoute === '/setup/name') {
-    if (isResetPasswordRoute) {
-      return { shouldRender: true, shouldRedirect: false };
+    if (resolvedRoute === '/setup/name') {
+      if (isResetPasswordRoute || isNameRoute) return null;
+      return '/setup/name';
     }
-    if (!isNameRoute) {
-      router.replace('/setup/name');
-      return { shouldRender: false, shouldRedirect: true };
+
+    if (
+      (isAuthRoute && !isResetPasswordRoute) ||
+      isNameRoute ||
+      (isSetupRoute && pathname !== '/setup/photo' && pathname !== '/setup/done')
+    ) {
+      return '/(tabs)';
     }
-    return { shouldRender: true, shouldRedirect: false };
-  }
 
-  if (
-    (isAuthRoute && !isResetPasswordRoute) ||
-    isNameRoute ||
-    (isSetupRoute && pathname !== '/setup/photo' && pathname !== '/setup/done')
-  ) {
-    router.replace('/(tabs)');
-    return { shouldRender: false, shouldRedirect: true };
-  }
+    return null;
+  }, [onboardingChecked, authLoading, pathname, ready, router, session, user]);
 
-  if (!isTabsRoute && !isSetupRoute) {
-    return { shouldRender: true, shouldRedirect: false };
-  }
+  useEffect(() => {
+    if (nextRoute) {
+      router.replace(nextRoute as any);
+    }
+  }, [nextRoute, router]);
 
-  return { shouldRender: true, shouldRedirect: false };
+  return { ready, shouldRedirect: Boolean(nextRoute) };
 }

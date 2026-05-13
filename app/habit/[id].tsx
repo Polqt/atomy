@@ -1,78 +1,85 @@
-import { View, Text, Pressable, StyleSheet, ScrollView, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { useHabits } from '../../hooks/useHabits';
-import { useMarkHabit } from '../../hooks/useMarkHabit';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDeleteHabit } from '../../hooks/useDeleteHabit';
 import { useHabitHistory } from '../../hooks/useHabitHistory';
-import { useState } from 'react';
-import { formatDate, formatTime } from '@/utils/date';
+import { useHabits } from '../../hooks/useHabits';
+import { useMarkHabit } from '../../hooks/useMarkHabit';
+import { queryKeys } from '../../hooks/queryKeys';
+import { updateHabitWithFrequency } from '../../services/habits';
+import type { HabitFrequency } from '../../types/habit';
 import colors from '../../constants/colors';
+import { formatTime } from '@/utils/date';
+
+const FREQUENCIES: HabitFrequency[] = ['daily', 'weekly', 'monthly', 'weekdays', 'weekends'];
+
+function GlassCard({ children, style }: { children: React.ReactNode; style?: object }) {
+  return (
+    <View style={[styles.glass, style]}>
+      <View style={styles.glassInner}>{children}</View>
+    </View>
+  );
+}
+
+function DropIcon() {
+  return (
+    <View style={styles.dropIcon}>
+      <View style={styles.dropPoint} />
+    </View>
+  );
+}
+
+function CircleButton({ children, onPress }: { children: React.ReactNode; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={styles.circleButton}>
+      {children}
+    </Pressable>
+  );
+}
 
 export default function HabitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const { data: habits = [] } = useHabits();
   const { data: history = [] } = useHabitHistory();
-  const { mutate: mark, isPending: acting } = useMarkHabit();
+  const { mutate: mark, isPending: marking } = useMarkHabit();
   const { mutate: deleteHabit, isPending: deleting } = useDeleteHabit();
-  const [localStatus, setLocalStatus] = useState<'done' | 'skipped' | null>(null);
+  const [frequencyOpen, setFrequencyOpen] = useState(false);
   const [error, setError] = useState('');
+
+  const habit = habits.find((item) => item.id === id);
+  const recent = useMemo(() => history.filter((entry) => entry.habit_id === id).slice(0, 5), [history, id]);
+
+  const { mutate: saveFrequency, isPending: frequencySaving } = useMutation({
+    mutationFn: (frequency: HabitFrequency) =>
+      updateHabitWithFrequency(id!, habit?.habit ?? '', habit?.goal ?? '', frequency),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.habits });
+      queryClient.invalidateQueries({ queryKey: queryKeys.todayHabits });
+      setFrequencyOpen(false);
+    },
+    onError: (e) => setError((e as Error).message ?? 'Could not update frequency.'),
+  });
+
   const goBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-    router.replace('/');
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
   };
-
-  // Guard against missing or invalid ID
-  if (!id) {
-    return (
-      <View style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-        <View style={styles.notFound}>
-          <Text style={styles.notFoundText}>Invalid habit ID.</Text>
-          <Pressable onPress={goBack} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>← Go back</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-
-  const habit = habits.find((h) => h.id === id);
 
   if (!habit) {
     return (
-      <View style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-        <View style={styles.notFound}>
-          <Text style={styles.notFoundText}>Habit not found.</Text>
-          <Pressable onPress={goBack} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>← Go back</Text>
-          </Pressable>
-        </View>
-      </View>
+      <LinearGradient colors={['#A8D5A2', '#D4EDD0']} style={styles.root}>
+        <Text style={styles.notFound}>Habit not found.</Text>
+      </LinearGradient>
     );
   }
 
-  const effectiveStatus = localStatus ?? (habit.completed ? 'done' : null);
-  const isPending = effectiveStatus === null;
-
-  const handleMark = (completed: boolean) => {
-    mark(
-      { id: habit.id, completed },
-      {
-        onSuccess: () => setLocalStatus(completed ? 'done' : 'skipped'),
-        onError: (e) => setError((e as Error).message ?? 'Something went wrong.'),
-      },
-    );
-  };
-
-  const recentActivity = history
-    .filter((entry) => entry.habit_id === habit.id)
-    .slice(0, 5);
+  const frequencyLabel = (habit.frequency ?? 'daily').charAt(0).toUpperCase() + (habit.frequency ?? 'daily').slice(1);
 
   const confirmDelete = () => {
     Alert.alert('Delete this habit?', 'This permanently removes the habit from your list.', [
@@ -80,410 +87,422 @@ export default function HabitDetailScreen() {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => {
-          deleteHabit(habit.id, {
-            onSuccess: () => router.replace('/'),
-            onError: (e) => setError((e as Error).message ?? 'Could not delete habit.'),
-          });
-        },
+        onPress: () => deleteHabit(habit.id, { onSuccess: () => router.replace('/') }),
       },
     ]);
   };
 
   return (
-    <View style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <LinearGradient colors={['#A8D5A2', '#D4EDD0']} style={styles.root}>
+      <StatusBar barStyle="dark-content" backgroundColor="#A8D5A2" />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 22 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <CircleButton onPress={goBack}><Text style={styles.headerIcon}>‹</Text></CircleButton>
+          <Text style={styles.headerTitle}>Habit Detail</Text>
+          <CircleButton onPress={() => {}}><Text style={styles.menuIcon}>•••</Text></CircleButton>
+        </View>
 
-        {/* Back button + Edit */}
-        <Animated.View entering={FadeIn.duration(300)} style={styles.topBar}>
-          <Pressable onPress={goBack} style={styles.backBtn}>
-            <Text style={styles.backBtnText}>← Back</Text>
-          </Pressable>
-          <Pressable onPress={() => router.push(`/edit-habit?id=${id}`)} style={styles.editBtn}>
-            <Text style={styles.editBtnText}>Edit</Text>
-          </Pressable>
-        </Animated.View>
-
-        {/* Eyebrow */}
-        <Animated.View entering={FadeInDown.duration(400).delay(60)} style={styles.eyebrowRow}>
-          <View style={styles.eyebrowDot} />
-          <Text style={styles.eyebrow}>Habit Detail</Text>
-        </Animated.View>
-
-        {/* Status badge */}
-        <Animated.View entering={FadeInDown.duration(400).delay(100)}>
-          {effectiveStatus === 'done' ? (
-            <View style={styles.badgeDone}>
-              <Text style={styles.badgeDoneText}>✓ Completed</Text>
-            </View>
-          ) : effectiveStatus === 'skipped' ? (
-            <View style={styles.badgeSkip}>
-              <Text style={styles.badgeSkipText}>– Skipped</Text>
-            </View>
-          ) : (
-            <View style={styles.badgePending}>
-              <Text style={styles.badgePendingText}>Pending</Text>
-            </View>
-          )}
-        </Animated.View>
-
-        {/* Habit text */}
-        <Animated.Text entering={FadeInDown.duration(440).delay(140)} style={styles.habitText}>
-          {habit.habit}
-        </Animated.Text>
-
-        {/* Why this matters */}
-        {habit.goal ? (
-          <Animated.View entering={FadeInDown.duration(440).delay(200)} style={styles.goalBlock}>
-            <View style={styles.goalEyebrowRow}>
-              <View style={styles.goalEyebrowDot} />
-              <Text style={styles.goalEyebrow}>Why this matters</Text>
-            </View>
-            <Text style={styles.goalText}>{habit.goal}</Text>
-          </Animated.View>
-        ) : null}
-
-        {/* Date */}
-        <Animated.Text entering={FadeInDown.duration(400).delay(240)} style={styles.dateText}>
-          {formatDate(habit.created_at)}
-        </Animated.Text>
-
-        {/* Error */}
-        {error ? (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
+        <View style={styles.hero}>
+          <View style={styles.habitIconCircle}>
+            <DropIcon />
           </View>
-        ) : null}
+          <Text style={styles.habitTitle}>{habit.habit}</Text>
+          <Pressable style={styles.frequencyPill} onPress={() => setFrequencyOpen(true)}>
+            <Text style={styles.frequencyText}>{frequencyLabel}</Text>
+            <Text style={styles.frequencyChevron}>⌄</Text>
+          </Pressable>
+        </View>
 
-        {/* Actions (only if pending) */}
-        {isPending && (
-          <Animated.View entering={FadeInDown.duration(440).delay(280)} style={styles.actions}>
-            <Pressable
-              onPress={acting ? undefined : () => handleMark(true)}
-              style={[styles.doneBtn, acting && { opacity: 0.5 }]}
-            >
-              {acting ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.doneBtnText}>✓ Mark as Done</Text>
-              )}
-            </Pressable>
-            <Pressable
-              onPress={acting ? undefined : () => handleMark(false)}
-              style={[styles.skipLink, acting && { opacity: 0.5 }]}
-            >
-              <Text style={styles.skipLinkText}>Skip for today</Text>
-            </Pressable>
-          </Animated.View>
-        )}
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <Animated.View entering={FadeInDown.duration(440).delay(320)} style={styles.recentSection}>
-          <Text style={styles.recentTitle}>Recent activity for this habit</Text>
-          {recentActivity.length === 0 ? (
-            <Text style={styles.noActivityText}>No activity yet</Text>
-          ) : (
-            recentActivity.map((entry, index) => (
+        <GlassCard>
+          <View style={styles.glassLabelRow}>
+            <Text style={styles.glassIcon}>💚</Text>
+            <Text style={styles.glassLabel}>Why this matters</Text>
+          </View>
+          <Text style={styles.glassBody}>{habit.goal}</Text>
+        </GlassCard>
+
+        <GlassCard>
+          <View style={styles.glassLabelRow}>
+            <Text style={styles.glassIcon}>🔥</Text>
+            <Text style={styles.glassLabel}>This streak</Text>
+          </View>
+          <Text style={styles.streakCount}>2 days</Text>
+          <Text style={styles.streakSub}>Keep it going!</Text>
+        </GlassCard>
+
+        <View style={styles.activitySection}>
+          <Text style={styles.activityTitle}>Recent activity</Text>
+          <View style={styles.activityList}>
+            {recent.map((entry, index) => (
               <View key={entry.id}>
                 <View style={styles.activityRow}>
+                  <View style={[styles.activityIcon, entry.completed ? styles.activityIconDone : styles.activityIconSkipped]}>
+                    <Text style={[styles.activityIconText, !entry.completed && styles.activityIconTextSkipped]}>
+                      {entry.completed ? '✓' : '−'}
+                    </Text>
+                  </View>
                   <Text style={styles.activityDate}>
-                    {new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at {formatTime(entry.created_at)}
+                    {new Date(entry.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, {formatTime(entry.created_at)}
                   </Text>
-                  <View style={[styles.activityPill, entry.completed ? styles.activityPillDone : styles.activityPillSkipped]}>
-                    <Text style={[styles.activityPillText, entry.completed ? styles.activityPillTextDone : styles.activityPillTextSkipped]}>
+                  <View style={[styles.statusPill, entry.completed ? styles.statusPillDone : styles.statusPillSkipped]}>
+                    <Text style={[styles.statusText, entry.completed ? styles.statusTextDone : styles.statusTextSkipped]}>
                       {entry.completed ? 'Completed' : 'Skipped'}
                     </Text>
                   </View>
                 </View>
-                {index !== recentActivity.length - 1 ? <View style={styles.activityDivider} /> : null}
+                {index !== recent.length - 1 ? <View style={styles.divider} /> : null}
               </View>
-            ))
-          )}
-        </Animated.View>
+            ))}
+          </View>
+        </View>
 
-        <Pressable onPress={confirmDelete} disabled={deleting} style={styles.deleteHabitButton}>
-          <View style={styles.deleteSeparator} />
-          <Text style={styles.deleteHabitText}>{deleting ? 'Deleting...' : 'Delete habit'}</Text>
-        </Pressable>
+        <View style={styles.actions}>
+          <Pressable
+            style={[styles.doneButton, marking && styles.disabled]}
+            disabled={marking}
+            onPress={() => mark({ id: habit.id, completed: true })}
+          >
+            {marking ? <ActivityIndicator color="#fff" /> : <Text style={styles.doneText}>✓ Mark as Done</Text>}
+          </Pressable>
+          <Pressable style={styles.skipButton} onPress={() => mark({ id: habit.id, completed: false })}>
+            <Text style={styles.skipText}>Skip for today</Text>
+          </Pressable>
+          <Pressable disabled={deleting} onPress={confirmDelete} style={styles.deleteButton}>
+            <Text style={styles.deleteText}>{deleting ? 'Deleting...' : 'Delete habit'}</Text>
+          </Pressable>
+        </View>
       </ScrollView>
-    </View>
+
+      <Modal transparent visible={frequencyOpen} animationType="fade" onRequestClose={() => setFrequencyOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setFrequencyOpen(false)}>
+          <View style={styles.frequencyMenu}>
+            {FREQUENCIES.map((item) => (
+              <Pressable
+                key={item}
+                disabled={frequencySaving}
+                onPress={() => saveFrequency(item)}
+                style={styles.frequencyOption}
+              >
+                <Text style={[styles.frequencyOptionText, habit.frequency === item && styles.frequencyOptionActive]}>
+                  {item.charAt(0).toUpperCase() + item.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: colors.background,
   },
-  scroll: { flex: 1 },
+  scroll: {
+    flex: 1,
+  },
   content: {
-    paddingTop: 64,
-    paddingBottom: 48,
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+    gap: 14,
   },
-  topBar: {
+  header: {
+    height: 40,
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 28,
   },
-  backBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: colors.surface,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  backBtnText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.muted,
-  },
-  editBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: colors.surface,
-    borderRadius: 99,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  editBtnText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  eyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 16,
-  },
-  eyebrowDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
-  },
-  eyebrow: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 3,
-    color: colors.primary,
-    textTransform: 'uppercase',
-  },
-  badgeDone: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(52,199,89,0.12)',
-    borderRadius: 99,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    marginBottom: 8,
-  },
-  badgeDoneText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#1E7A3A',
-  },
-  badgeSkip: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,59,48,0.10)',
-    borderRadius: 99,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    marginBottom: 8,
-  },
-  badgeSkipText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#CC2200',
-  },
-  badgePending: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,179,0,0.12)',
-    borderRadius: 99,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    marginBottom: 8,
-  },
-  badgePendingText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#B37A00',
-  },
-  habitText: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
-    lineHeight: 36,
-    letterSpacing: -0.6,
-    marginBottom: 24,
-  },
-  goalBlock: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginBottom: 20,
-    gap: 8,
-  },
-  goalEyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  goalEyebrowDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: colors.primary,
-  },
-  goalEyebrow: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 2,
-    color: colors.muted,
-    textTransform: 'uppercase',
-  },
-  goalText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#6B7280',
-    lineHeight: 22,
-  },
-  dateText: {
-    marginTop: 4,
-    fontSize: 12,
-    fontWeight: '400',
-    color: colors.muted,
-    marginBottom: 32,
-  },
-  errorBanner: {
-    backgroundColor: colors.dangerBg,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.dangerBorder,
-  },
-  errorText: {
-    fontSize: 13,
-    color: colors.danger,
-  },
-  actions: {
-    gap: 12,
-  },
-  doneBtn: {
-    backgroundColor: colors.primary,
-    height: 54,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  doneBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  skipLink: {
-    alignSelf: 'stretch',
-    backgroundColor: colors.surface,
-    height: 54,
-    borderRadius: 28,
-    paddingHorizontal: 12,
+  circleButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.86)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
-    shadowRadius: 4,
+    shadowRadius: 8,
     elevation: 2,
   },
-  skipLinkText: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.muted,
+  headerIcon: {
+    fontSize: 30,
+    lineHeight: 32,
+    color: colors.text,
   },
-  recentSection: {
-    marginTop: 30,
-    gap: 12,
+  menuIcon: {
+    fontSize: 16,
+    letterSpacing: -1,
+    color: colors.text,
   },
-  recentTitle: {
+  headerTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.text,
   },
-  noActivityText: {
-    textAlign: 'center',
-    fontSize: 13,
-    color: colors.muted,
-    paddingVertical: 14,
-  },
-  activityRow: {
-    height: 36,
-    flexDirection: 'row',
+  hero: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    paddingTop: 16,
+    paddingBottom: 10,
   },
-  activityDate: {
-    fontSize: 13,
-    color: colors.muted,
-  },
-  activityPill: {
-    borderRadius: 99,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  activityPillDone: {
-    backgroundColor: 'rgba(52,199,89,0.12)',
-  },
-  activityPillSkipped: {
-    backgroundColor: 'rgba(255,59,48,0.10)',
-  },
-  activityPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  activityPillTextDone: {
-    color: colors.primary,
-  },
-  activityPillTextSkipped: {
-    color: '#FF3B30',
-  },
-  activityDivider: {
-    height: 1,
-    backgroundColor: 'rgba(0,0,0,0.06)',
-  },
-  deleteHabitButton: {
-    alignItems: 'center',
-    marginTop: 24,
-    paddingBottom: 24,
-  },
-  deleteSeparator: {
-    alignSelf: 'stretch',
-    height: 1,
-    backgroundColor: 'rgba(0,0,0,0.06)',
-    marginBottom: 24,
-  },
-  deleteHabitText: {
-    fontSize: 13,
-    color: '#FF3B30',
-  },
-  notFound: {
-    flex: 1,
+  habitIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  notFoundText: {
+  dropIcon: {
+    width: 28,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    transform: [{ rotate: '45deg' }],
+  },
+  dropPoint: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    position: 'absolute',
+    right: 7,
+    bottom: 7,
+  },
+  habitTitle: {
+    marginTop: 18,
+    maxWidth: 260,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  frequencyPill: {
+    marginTop: 12,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    gap: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  frequencyText: {
+    fontSize: 13,
+    color: colors.text,
+  },
+  frequencyChevron: {
+    fontSize: 13,
+    color: colors.text,
+  },
+  errorText: {
+    color: colors.danger,
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  glass: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: 'rgba(255,255,255,0.54)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  glassInner: {
+    backgroundColor: 'rgba(255,255,255,0.28)',
+    padding: 16,
+  },
+  glassLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  glassIcon: {
     fontSize: 16,
+  },
+  glassLabel: {
+    fontSize: 11,
     color: colors.muted,
+  },
+  glassBody: {
+    fontSize: 15,
+    color: colors.text,
+  },
+  streakCount: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  streakSub: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#2F8F4E',
+  },
+  activitySection: {
+    marginTop: 8,
+    gap: 12,
+  },
+  activityTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  activityList: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  activityRow: {
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  activityIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityIconDone: {
+    backgroundColor: colors.primary,
+  },
+  activityIconSkipped: {
+    backgroundColor: 'rgba(255,59,48,0.10)',
+  },
+  activityIconText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  activityIconTextSkipped: {
+    color: '#CC2200',
+  },
+  activityDate: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.muted,
+  },
+  statusPill: {
+    borderRadius: 99,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  statusPillDone: {
+    backgroundColor: 'rgba(52,199,89,0.12)',
+  },
+  statusPillSkipped: {
+    backgroundColor: 'rgba(255,59,48,0.10)',
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statusTextDone: {
+    color: '#1E7A3A',
+  },
+  statusTextSkipped: {
+    color: '#CC2200',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.divider,
+    marginLeft: 40,
+  },
+  actions: {
+    marginTop: 16,
+    gap: 20,
+  },
+  doneButton: {
+    height: 54,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  skipButton: {
+    height: 54,
+    borderRadius: 28,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  skipText: {
+    fontSize: 15,
+    color: colors.muted,
+  },
+  deleteButton: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  deleteText: {
+    fontSize: 13,
+    color: '#FF3B30',
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  frequencyMenu: {
+    width: '100%',
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    padding: 8,
+  },
+  frequencyOption: {
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+  },
+  frequencyOptionText: {
+    fontSize: 15,
+    color: colors.text,
+  },
+  frequencyOptionActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  notFound: {
+    marginTop: 120,
+    textAlign: 'center',
+    color: colors.text,
+    fontSize: 16,
   },
 });

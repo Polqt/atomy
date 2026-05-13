@@ -7,10 +7,13 @@
 // This simplifies data flow without needing transformation
 
 // Habit with today's completion status (from /habits/today endpoint)
+export type HabitFrequency = 'daily' | 'weekly' | 'monthly' | 'weekdays' | 'weekends';
+
 export type TodayHabit = {
   id: string;
   goal: string;
   habit: string;
+  frequency: HabitFrequency;
   completed: boolean;
   created_at: string;
 };
@@ -20,6 +23,7 @@ export type HabitRecord = {
   id: string;
   goal: string;
   habit: string;
+  frequency: HabitFrequency;
   completed: boolean;
   created_at: string;
   updated_at: string;
@@ -31,6 +35,7 @@ export type HabitCheckin = {
   habit_id: string;
   goal: string;
   habit: string;
+  frequency?: HabitFrequency;
   completed: boolean;
   created_at: string;
   checkin_date: string;
@@ -41,6 +46,7 @@ export type HabitApiRow = {
   id: string;
   goal: string;
   habit: string;
+  frequency?: HabitFrequency;
   completed: boolean;
   createdAt: string;
   updatedAt?: string;
@@ -51,6 +57,7 @@ export type HabitHistoryApiRow = {
   habitId: string;
   goal: string;
   habit: string;
+  frequency?: HabitFrequency;
   completed: boolean;
   createdAt: string;
 };
@@ -62,6 +69,7 @@ export function normalizeHabit(row: HabitApiRow): HabitRecord {
     id: row.id,
     goal: row.goal,
     habit: row.habit,
+    frequency: row.frequency ?? 'daily',
     completed: row.completed,
     created_at: createdAt,
     updated_at: row.updatedAt ? new Date(row.updatedAt).toISOString() : createdAt,
@@ -74,6 +82,7 @@ export function normalizeHabitHistory(row: HabitHistoryApiRow): HabitCheckin {
     habit_id: row.habitId,
     goal: row.goal,
     habit: row.habit,
+    frequency: row.frequency ?? 'daily',
     completed: row.completed,
     created_at: new Date(row.createdAt).toISOString(),
     checkin_date: row.createdAt.slice(0, 10),
@@ -85,6 +94,7 @@ export function normalizeTodayHabit(row: HabitApiRow): TodayHabit {
     id: row.id,
     goal: row.goal,
     habit: row.habit,
+    frequency: row.frequency ?? 'daily',
     completed: row.completed,
     created_at: new Date(row.createdAt).toISOString(),
   };

@@ -31,6 +31,7 @@ export class HabitsRepository {
         userId: schema.habitsTable.userId,
         goal: schema.habitsTable.goal,
         habit: schema.habitsTable.habit,
+        frequency: schema.habitsTable.frequency,
         completed: sql<boolean>`coalesce(${schema.habitCheckinsTable.completed}, false)`,
         createdAt: schema.habitsTable.createdAt,
         updatedAt: schema.habitsTable.updatedAt,
@@ -78,6 +79,7 @@ export class HabitsRepository {
         habitId: schema.habitCheckinsTable.habitId,
         goal: schema.habitsTable.goal,
         habit: schema.habitsTable.habit,
+        frequency: schema.habitsTable.frequency,
         completed: schema.habitCheckinsTable.completed,
         createdAt: schema.habitCheckinsTable.createdAt,
         checkinDate: schema.habitCheckinsTable.checkinDate,
@@ -126,6 +128,7 @@ export class HabitsRepository {
     userId: string;
     goal: string;
     habit: string;
+    frequency?: string;
     completed?: boolean;
   }) {
     return this.db.insert(schema.habitsTable).values(data).returning();
@@ -134,7 +137,7 @@ export class HabitsRepository {
   async update(
     id: string,
     userId: string,
-    data: Partial<{ goal: string; habit: string; completed: boolean }>,
+    data: Partial<{ goal: string; habit: string; completed: boolean; frequency: string }>,
   ) {
     return this.db
       .update(schema.habitsTable)

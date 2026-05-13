@@ -1,8 +1,3 @@
-/**
- * Root Layout
- * Main entry point for the application
- * Deep link testing requires a development build and will not work correctly in Expo Go.
- */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -11,33 +6,27 @@ import { Stack, router } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../context/AuthContext';
-import { useUserSync, usePushTokenSync } from '../hooks/useSessionSync';
+import { useAuthQuerySync, useUserSync, usePushTokenSync } from '../hooks/useSessionSync';
 import { useOnboardingGate } from '../hooks/useOnboardingGate';
 import { API } from '../constants/api';
 import SplashScreen from '../components/SplashScreen';
 import { supabase } from '../config/supabase';
 import { ONBOARDING_KEY, getAuthParams, resolveAuthRoute } from '../utils/auth-routing';
 
-// Component that handles session sync
 function SessionSync() {
   useUserSync();
   usePushTokenSync();
+  useAuthQuerySync();
   return null;
 }
 
-// Component that handles onboarding redirect
-function OnboardingGate({ children }: { children: React.ReactNode }) {
-  const { shouldRender } = useOnboardingGate();
-  
-  if (!shouldRender) {
-    return null;
-  }
-  
-  return <>{children}</>;
+function OnboardingGate() {
+  useOnboardingGate();
+  return null;
 }
 
-function DeepLinkHandler({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false);
+function DeepLinkHandler() {
+  // Deep link testing requires a development build and will not work correctly in Expo Go.
   const handledUrls = useRef(new Set<string>());
 
   const routeResolvedSession = async (url: string | null) => {
@@ -92,9 +81,7 @@ function DeepLinkHandler({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    Linking.getInitialURL()
-      .then(handleUrl)
-      .finally(() => setReady(true));
+    Linking.getInitialURL().then(handleUrl);
 
     const linkSubscription = Linking.addEventListener('url', ({ url }) => {
       handleUrl(url);
@@ -112,14 +99,12 @@ function DeepLinkHandler({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  if (!ready) return null;
-  return <>{children}</>;
+  return null;
 }
 
 export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);
 
-  // Create QueryClient with optimized defaults
   const queryClient = useMemo(
     () =>
       new QueryClient({
@@ -133,7 +118,6 @@ export default function RootLayout() {
     []
   );
 
-  // Show splash screen while app initializes
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
@@ -142,14 +126,20 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <AuthProvider>
-          <DeepLinkHandler>
-            <SessionSync />
-            <OnboardingGate>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="add-habit" options={{ presentation: 'transparentModal', animation: 'slide_from_bottom' }} />
-              </Stack>
-            </OnboardingGate>
-          </DeepLinkHandler>
+          <SessionSync />
+          <DeepLinkHandler />
+          <OnboardingGate />
+          <Stack initialRouteName="(tabs)" screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="setup" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="onboarding" />
+            <Stack.Screen name="profile" />
+            <Stack.Screen name="profile-habits" />
+            <Stack.Screen name="edit-habit" />
+            <Stack.Screen name="habit/[id]" />
+            <Stack.Screen name="add-habit" options={{ presentation: 'transparentModal', animation: 'slide_from_bottom' }} />
+          </Stack>
         </AuthProvider>
       </SafeAreaProvider>
     </QueryClientProvider>

@@ -26,6 +26,7 @@ export const habitsTable = pgTable('habits', {
     .references(() => usersTable.id, { onDelete: 'cascade' }),
   goal: text('goal').notNull(),
   habit: text('habit').notNull(),
+  frequency: text('frequency').default('daily').notNull(),
   completed: boolean('completed').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull().$onUpdateFn(() => new Date()),

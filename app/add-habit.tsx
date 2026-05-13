@@ -17,6 +17,7 @@ import { useCreateHabit } from '../hooks/useCreateHabit';
 import colors from '../constants/colors';
 
 const MAX_HABIT_CHARS = 50;
+const FREQUENCIES = ['daily', 'weekly', 'monthly', 'weekdays', 'weekends'] as const;
 
 export default function AddHabitScreen() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function AddHabitScreen() {
 
   const [habit, setHabit] = useState('');
   const [goal, setGoal] = useState('');
+  const [frequency, setFrequency] = useState<(typeof FREQUENCIES)[number]>('daily');
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<'habit' | 'goal' | null>(null);
 
@@ -41,7 +43,7 @@ export default function AddHabitScreen() {
     if (!canSubmit || saving) return;
     setError('');
     create(
-      { goal: goal.trim(), habit: habit.trim() },
+      { goal: goal.trim(), habit: habit.trim(), frequency },
       {
         onSuccess: () => router.replace('/'),
         onError: (e) => setError((e as Error).message ?? 'Something went wrong.'),
@@ -121,6 +123,23 @@ export default function AddHabitScreen() {
                 onFocus={() => setFocusedField('goal')}
                 onBlur={() => setFocusedField(null)}
               />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Frequency</Text>
+              <View style={styles.frequencyRow}>
+                {FREQUENCIES.map((item) => (
+                  <Pressable
+                    key={item}
+                    onPress={() => setFrequency(item)}
+                    style={[styles.frequencyPill, frequency === item && styles.frequencyPillActive]}
+                  >
+                    <Text style={[styles.frequencyText, frequency === item && styles.frequencyTextActive]}>
+                      {item.charAt(0).toUpperCase() + item.slice(1)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
 
             {error ? (
@@ -251,6 +270,28 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 13,
     color: colors.danger,
+  },
+  frequencyRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  frequencyPill: {
+    borderRadius: 14,
+    backgroundColor: colors.background,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  frequencyPillActive: {
+    backgroundColor: colors.primary,
+  },
+  frequencyText: {
+    fontSize: 12,
+    color: colors.muted,
+    fontWeight: '600',
+  },
+  frequencyTextActive: {
+    color: '#fff',
   },
   footer: {
     paddingHorizontal: 20,

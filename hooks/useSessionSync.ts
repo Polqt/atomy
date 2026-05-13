@@ -1,15 +1,10 @@
-/**
- * Custom hooks for session-based sync operations
- */
 import { useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { authorizedRequest, getApiUrl } from '../services/backend';
 import { getNotificationsEnabled, registerForPushNotifications, syncPushTokenWithBackend } from '../services/notifications';
+import { queryKeys } from './queryKeys';
 
-/**
- * Hook to sync user profile with backend when session changes
- * Ensures the user row exists in the database before any habit operations
- */
 export function useUserSync() {
   const { session } = useAuth();
   const syncedUserId = useRef<string | null>(null);
@@ -17,7 +12,6 @@ export function useUserSync() {
   useEffect(() => {
     const userId = session?.user.id ?? null;
 
-    // Don't sync if no session or API URL not configured
     if (!session || !userId || !getApiUrl()) {
       if (!session) {
         syncedUserId.current = null;
@@ -25,11 +19,9 @@ export function useUserSync() {
       return;
     }
 
-    // Skip if already synced this user
     if (syncedUserId.current === userId) return;
     syncedUserId.current = userId;
 
-    // Sync user profile
     (async () => {
       try {
         await authorizedRequest('/api/users/me', { method: 'GET' }, session.access_token);
@@ -40,9 +32,6 @@ export function useUserSync() {
   }, [session?.user.id, session?.access_token]);
 }
 
-/**
- * Hook to sync push notification token with backend
- */
 export function usePushTokenSync() {
   const { session } = useAuth();
   const syncedUserId = useRef<string | null>(null);
@@ -74,4 +63,18 @@ export function usePushTokenSync() {
       }
     })();
   }, [session?.user.id, session?.access_token]);
+}
+
+export function useAuthQuerySync() {
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!session) {
+      queryClient.removeQueries({ queryKey: queryKeys.habits });
+      return;
+    }
+
+    queryClient.invalidateQueries({ queryKey: queryKeys.habits });
+  }, [queryClient, session?.user.id, session?.access_token]);
 }
